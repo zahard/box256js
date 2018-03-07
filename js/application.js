@@ -1,7 +1,4 @@
 
-
-var CommandValidator = new commandValidator();
-
 class Box256 {
 
   constructor() {
@@ -13,52 +10,26 @@ class Box256 {
     this.wrapper.style.width = this.width + 'px';
     this.wrapper.style.height = this.height + 'px';
 
-    this.view = new ViewRender({
-      wrapper: this.wrapper,
-      height: this.height,
-      width: this.width,
-      cellSize: 16,
-    });
-
-    var layerFactory = new LayersFactory({
-        size: [this.width, this.height],
-        wrap: this.wrapper
-    });
-
-
-    this.layers = {
-      back: layerFactory.create('back', 1),
-      data: layerFactory.create('data', 2),
-    }
-
-    this.drawBackground();
-
-    setTimeout(()=>{
-      this.attachListeners()
-    },500);
-
-    this.cursor = false;
-    this.cursorPos = 0;
-
+    // Active area width
     this.cellsInRow = 12;
-    this.cellsInCol = 16;
-    this.cSize = 16;
 
-    this.maxCursorPos = this.cellsInRow * this.cellsInCol - 1;
+    // Amount of lines in editor
+    this.linesCount = 32;
 
+    // Where active area start
     this.cellsOffset = {x: 4, y: 3};
+    this.memCellOffset = {x: 20, y: 3};
 
-    this.activeCell = this.getCursorCell();
+    this.maxCursorPos = this.cellsInRow * this.linesCount - 1;
+    this.cursor = false; // display reversed or usual
+    this.setCursor(0);
 
-    this.chars = new Array(this.cellsInRow * this.cellsInCol);
-    this.colorMap = new Array(this.cellsInRow * this.cellsInCol);
+    // Map of chars in editor and their colors
+    this.chars = new Array(this.cellsInRow * this.linesCount);
+    this.colorMap = new Array(this.cellsInRow * this.linesCount);
 
-    this.memory = new Array(this.cellsInRow * this.cellsInCol).fill('00')
-
-    this.memory[0] = '01'
-    this.memory[1] = '0A'
-    this.memory[2] = '04'
-    this.memory[3] = '00'
+    // Create memory
+    this.memory = new Memory(this.cellsInRow * this.linesCount);
 
     this.commands = {
       'MOV': 'green',
@@ -74,6 +45,7 @@ class Box256 {
       'MOD': 'aqua',
     }
 
+    /*
     this.colors = {
       white: 0,
       black: 1,
@@ -87,47 +59,105 @@ class Box256 {
       pink: 8,
       bordo: 9,
       aqua: 10
+    }*/
+
+    setTimeout(() => {
+      this.attachListeners()
+    }, 500);
+
+    this.cmdManager = new CommandManager();
+
+    this.view = new ViewRender({
+      wrapper: this.wrapper,
+      height: this.height,
+      width: this.width,
+      cellSize: 16,
+      lines: this.linesCount
+    });
+
+    this.view.onReady(() => {
+      // Draw background default data
+      this.view.drawTemplate();
+      this.init();
+    });
+
+
+  }
+
+  init() {
+    this.runCursor(false);
+  }
+
+  run() {
+    this.resetCursorInterval();
+    this.runCode(0);
+  }
+
+  runCode(line) {
+    if (line < this.linesCount) {
+
+      this.drawActiveLine(line);
+
+      const next = this.runInstruction(line);
+      if (next == -1) {
+        // Prev instruction was not found
+        // got to next one immidiatly
+        this.drawUnactiveLine(line);
+        this.runCode(line + 1);
+      } else {
+        // If instuction was found make a delay
+        setTimeout(() => {
+          this.drawUnactiveLine(line);
+          this.runCode(next);
+        }, 250)
+      }
+    } else {
+      console.log('Finsih')
+      this.runCursor(false);
+    }
+  }
+
+  runInstruction(line) {
+    var idx = line * 4;
+    var cmd = this.memory.get(idx);
+
+    // Empty command - skip to next line
+    if (cmd == '00') {
+      return -1;
     }
 
-    this.loadImages();
+    var a = this.memory.get(idx+1);
+    var b = this.memory.get(idx+2);
+    var c = this.memory.get(idx+3);
 
-  }
+    var jumpTo = this.execCommand(cmd, a, b, c);
+    // Not found cmd
+    if (jumpTo == -1) {
+      return -1;
+    }
 
-  compileFonts() {
-    this.fontColors = {
-      white: this.fontImage,
-      black: this.copyFont('#222'),
-      blue: this.copyFont('#384972'),
-      lightblue: this.copyFont('#54aff7'), // 6baef1
-      grey: this.copyFont('#5d5751'),
-      green: this.copyFont('#3d8154'), //  4f7f58
-      lightgreen: this.copyFont('#6ddd64'), //  8ada73
-      red: this.copyFont('#e9415b'), //  d74f5e
-      orange: this.copyFont('#9f5841'), //  965b46
-      pink: this.copyFont('#ed85aa'),
-      bordo: this.copyFont('#743253'), // jmp
-      aqua: this.copyFont('#807999'), // add
+    if(!jumpTo) {
+      jumpTo = line +1;
+    } else {
+      var tmp  = jumpTo % 4;
+      if (tmp !== 0 ) {
+        jumpTo = (~~(jumpTo/4)) + 1;
+      } else {
+        jumpTo = tmp;
+      }
+    }
 
-    };
-  }
+    var lines = this.memory.flushChangedLines();
+    lines.forEach(ln => {
+      this.drawMemoryLine(ln, false)
+    });
 
-  runCode() {
-    var s = 0;
-    this.runInstruction(s);
-  }
-
-  runInstruction(idx) {
-    var cmd = this.memory[idx];
-    var a = this.memory[idx+1];
-    var b = this.memory[idx+2];
-    var c = this.memory[idx+3];
-
-    return this.execCommand(cmd, a, b, c) || idx + 4;
+    return jumpTo;
   }
 
   execCommand(cmd, a,b,c) {
     var memory = this.memory;
-    return CommandValidator.exec(cmd, [a,b,c], memory);
+    return this.cmdManager.exec(cmd, [a,b,c], memory);
   }
 
   getCellPosition(pos) {
@@ -147,10 +177,6 @@ class Box256 {
     return this.getCellPosition(this.cursorPos);
   }
 
-  start() {
-    this.activeLayer = this.layers.data;
-    this.runCursor(false);
-  }
 
   resetCursorInterval() {
     clearInterval(this.cursorInterval);
@@ -174,13 +200,9 @@ class Box256 {
     var char = this.chars[this.cursorPos] || '0';
     var color = this.colorMap[this.cursorPos] || 'grey';
     if (value) {
-      this.drawText(char,
-        this.activeCell.x * 16 , this.activeCell.y * 16,
-        'black', '#fff');
+      this.view.drawText(char, this.activeCell, 'black', '#fff');
     } else {
-      this.drawText(char,
-        this.activeCell.x * 16 , this.activeCell.y * 16,
-       color, '#222');
+      this.view.drawText(char, this.activeCell, color, '#222');
     }
   }
 
@@ -209,7 +231,12 @@ class Box256 {
         if (!(rowPos > 0 && rowPos % 3 == 0) || rowPos < 3) {
           this.setChar(char);
           valid = true;
+        } else if (char == '0' && rowPos > 0 && rowPos % 3 == 0) {
+          // Clear ref symbol and move righr
+          this.setChar(null);
+          valid = true;
         }
+
         break;
       case "mem":
       case "ref":
@@ -248,10 +275,26 @@ class Box256 {
     var cell = this.getCellPosition(pos);
     var char = this.chars[pos] || '0';
     var color = this.colorMap[pos] || 'grey';
-    this.drawText(char,
-      cell.x * 16 , cell.y * 16,
-      color, '#222');
+    this.view.drawText(char, cell, color, '#222');
   }
+
+  drawActiveLine(line) {
+    const start = line * this.cellsInRow;
+    for (let i = 0; i < 12; i++) {
+      const pos = start + i;
+      const cell = this.getCellPosition(pos);
+      const char = this.chars[pos] || '0';
+      this.view.drawText(char, cell, 'black', '#fff');
+    }
+  }
+
+  drawUnactiveLine(line) {
+    const start = line * this.cellsInRow;
+    for (let i = 0; i < 12; i++) {
+      this.drawDataChar(start + i)
+    }
+  }
+
 
   drawByteChars(byteIndex) {
     var s = byteIndex * 3;
@@ -339,205 +382,73 @@ class Box256 {
     }
   }
 
-  updateMemory(byteIndex) {
-    var byteNum =  byteIndex % 4;
-    var line = ~~(byteIndex / 4);
-    console.log('update line', line)
-  }
-
-  getWordFromByte(chars) {
+  getSlotText(index) {
+    var s = index * 3;
+    var chars = this.chars.slice(s, s+3);
     var word = '';
     for (var i = 0; i < 3; i++) {
-      word += chars[i] ? chars[i][0] : '0';
+      word += chars[i] ? chars[i] : '0';
     }
     return word;
   }
 
-  getNumFromByte(chars) {
-    var num = '';
-    for (var i = 1; i < 3; i++) {
-      num += chars[i] ? chars[i][0] : '0';
-    }
-    return num;
-  }
-
-  drawByteMemory(byteIndex) {
-    var byteNum =  byteIndex % 4;
+  updateMemory(byteIndex) {
     var line = ~~(byteIndex / 4);
-
-    var error = true;
-
     var cmdByteIdx = line * 4;
     var cmdNum = '00';
+    var error = true;
 
     // First check COMMAND byte
-    var cmdChars = this.getByteChars(cmdByteIdx);
-    var cmd = this.getWordFromByte(cmdChars);
+    var cmd = this.getSlotText(cmdByteIdx);
 
     // If command exists - validate it
     if (this.commands[cmd]) {
-      var res = this.validateCommand(cmd, cmdByteIdx);
+      let res = this.validateCommand(cmd, cmdByteIdx);
       if (res) {
         cmdNum = res;
         error = false;
-      } else {
-        cmdNum = '00';
-        error = true;
       }
-    } else {
-      // If valid number inserted
-      if ( /^.+[0-9A-F]{2}$/.test(cmd) ) {
+    } else if ( /^.+[0-9A-F]{2}$/.test(cmd) ) {
+        // If valid number inserted
+        cmdNum = cmd.substr(1); // take last 2 chars
         error = false;
-        cmdNum = cmd.substr(1);
-      } else {
-        //Draw 00
-        error = true;
-        cmdNum = '00'
-      }
     }
 
-    var lineCommand = []
-    var idx = cmdByteIdx;
-    var color,chars,num;
-    for (var i = 0; i < 4; i++) {
-      if (i == 0) {
-        num = cmdNum;
-      }else {
-        idx++;
-        num = this.getNumFromByte(this.getByteChars(idx));
-      }
+    // Write command to memory
+    this.memory.set(line * 4, cmdNum);
 
-      this.memory[(line*4)+i] = num;
-
-      color = error ? 'red': (num == '00' ? 'green' : 'lightgreen');
-      this.drawText(num, (20 + i*2) * 16 , (line + 3)*16, color);
+    // Write arguments to memory
+    let argIndex = cmdByteIdx + 1;
+    for (let i = 1; i < 4; i++) {
+      const argVal = this.getSlotText(argIndex).substr(1);
+      this.memory.set((line*4) + i, argVal);
+      argIndex++;
     }
 
-
-
+    this.drawMemoryLine(line, error);
   }
 
-
+  drawMemoryLine(line, error) {
+    const index = line * 4;
+    let value, color;
+    for (let i=0; i < 4; i++) {
+      value = this.memory.get(index+i);
+      color = error ? 'red': (value == '00' ? 'green' : 'lightgreen');
+      this.view.drawText(value, {
+          x: this.memCellOffset.x + i * 2,
+          y: this.memCellOffset.y + line,
+        }, color);
+    }
+  }
 
   validateCommand(cmd, idx) {
-    return CommandValidator.validate(cmd,
-      this.getWordFromByte(this.getByteChars(idx + 1)),
-      this.getWordFromByte(this.getByteChars(idx + 2)),
-      this.getWordFromByte(this.getByteChars(idx + 3))
+    return this.cmdManager.validate(cmd,
+      this.getSlotText(idx + 1),
+      this.getSlotText(idx + 2),
+      this.getSlotText(idx + 3)
     );
   }
 
-  drawTextChar(char, color) {
-    this.drawText(char, this.activeCell.x * 16 , this.activeCell.y * 16, color, '#222');
-    this.moveCursor(CurosorDir.right);
-  }
-
-  drawBackground() {
-    this.layers.back.fillAll('#222');
-  }
-
-  loadImages() {
-    this.fontImage = new Image();
-    this.fontImage.onload = () => {
-      this.compileFonts();
-      this.draw();
-      this.start();
-    }
-    this.fontImage.src = 'dos_font_black.png'
-  }
-
-
-
-  copyFont(color) {
-    var cnv = document.createElement('canvas');
-    var w = this.fontImage.width;
-    var h = this.fontImage.height;
-    var layer = new Layer(cnv, w, h, 0, '');
-    layer.cxt.drawImage(this.fontImage, 0, 0);
-    // Invert
-    layer.cxt.globalCompositeOperation = 'source-in';
-    // Fill all clipped area exept char with color
-    layer.set('fillStyle', color);
-    layer.fillRect(0, 0, w, h);
-    return layer.cnv;
-  }
-
-  draw() {
-    this.activeLayer = this.layers.back;
-    var lines = []
-    for (var i=0;i<64;i++) {
-      if (i%4 == 0) {
-        var n = i.toString(16).toUpperCase();
-        if(i<16) {
-          n = '0' + n;
-        }
-        lines.push(n);
-      }
-    }
-
-    var y = 16;
-
-    this.drawText('MEMORY', 21 * 16 , y, 'green');
-
-    this.drawText('[    ]', 6 * 16 , y, 'grey');
-    this.drawText('SAVE', 7 * 16 , y, 'white');
-
-    this.drawText('[    ]', 13 * 16 , y, 'grey');
-    this.drawText('LOAD', 14 * 16 , y, 'white');
-
-    y = 48;
-
-    this.drawText(lines.join("\n"), 16, y, 'blue');
-
-    var nulls = []
-    for (var i=0;i<16;i++) {
-      nulls.push('000 000 000 000')
-    }
-    this.drawText(nulls.join("\n"), 16 * 4, y, 'grey');
-
-    var memory = []
-    for (var i=0;i<16;i++) {
-      memory.push('00000000')
-    }
-    this.drawText(memory.join("\n"), 20 * 16 , y, 'green');
-
-  }
-
-  drawText(text, x, y, color, bgcolor) {
-    this.font = this.fontColors[color];
-    var size = 16;
-    var dx = 0;
-    for (let i = 0; i < text.length; i++) {
-      if (text[i] == "\n") {
-        y += size;
-        dx = 0;
-        continue;
-      }
-      this.drawChar(text[i], x + dx * size, y, bgcolor);
-      dx++;
-    }
-  }
-
-  drawChar(char, x, y, bgcolor) {
-    const cxt = this.activeLayer;
-    var size = 16;
-    var fontSize = 8;
-    var code = char.charCodeAt();
-    var cy = parseInt(code / 16, 10) * 9 + 1;
-    var cx = (code % 16) * 9 + 1;
-
-    // Clear
-    cxt.set('fillStyle', bgcolor || '#222');
-    cxt.fillRect(x, y, size, size);
-
-    // Draw char
-    cxt.drawImage(this.font,
-      cx, cy, fontSize, fontSize,
-      x, y,
-      size, size
-    );
-
-  }
 
   attachListeners() {
 

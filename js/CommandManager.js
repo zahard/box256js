@@ -1,5 +1,5 @@
 
-class commandValidator {
+class CommandManager {
 
   constructor() {
 
@@ -110,10 +110,15 @@ class commandValidator {
 
 
   exec(cmdEnum, args, memory) {
-    var cmd =  this.commandMap[cmdEnum];
+    var cmd = this.commandMap[cmdEnum];
+    if (!cmd) {
+      //Command not found, skip
+      return -1;
+    }
+
     var cmdName = cmd.substr(0,3);
     var argTypes = cmd.substr(4).split('_');
-    console.log(cmdName)
+
     switch (cmdName) {
       case "MOV":
         this.execMOV(memory, args, argTypes);
@@ -123,7 +128,6 @@ class commandValidator {
 
   execMOV(memory, args, argTypes) {
     var a = this.getValue(memory, args[0], argTypes[0]);
-    console.log('A value', a, args, argTypes)
     this.setValue(memory, a, args[1], argTypes[1]);
   }
 
@@ -134,12 +138,12 @@ class commandValidator {
         break;
       case "m":
         var adress = parseInt(val, 16);
-        return parseInt(memory[adress], 16);
+        return parseInt(memory.get(adress), 16);
         break;
       case "p":
         var cell = parseInt(val, 16);
-        var adress = parseInt(memory[cell], 16);
-        return parseInt(memory[adress], 16);
+        var adress = parseInt(memory.get(cell), 16);
+        return parseInt(memory.get(adress), 16);
         break;
     }
   }
@@ -149,12 +153,12 @@ class commandValidator {
     switch (destType) {
       case "m":
         var adress = parseInt(dest, 16);
-        memory[adress] = val;
+        memory.set(adress, val);
         break;
       case "p":
         var cell = parseInt(dest, 16)
-        var adress = parseInt(memory[cell], 16);
-        memory[adress] = val;
+        var adress = parseInt(memory.get(cell), 16);
+        memory.set(adress, val);
         break;
     }
   }

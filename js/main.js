@@ -5,9 +5,9 @@ var resources = [
     'Vertaxis/Shape',
     'Layer',
     'KeyboardManager',
-    'Registry',
+    'Memory',
     'ViewRender',
-    'commandValidator',
+    'CommandManager',
     'application'
 ];
 
