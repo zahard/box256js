@@ -6,8 +6,9 @@ var resources = [
     'Layer',
     'KeyboardManager',
     'Registry',
+    'commandValidator',
     'application'
-];  
+];
 
 for (var i = 0; i < resources.length; i++)
 {

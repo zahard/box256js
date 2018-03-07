@@ -1,4 +1,7 @@
 
+
+var CommandValidator = new commandValidator();
+
 class Box256 {
 
   constructor() {
@@ -42,25 +45,42 @@ class Box256 {
 
     this.chars = new Array(this.cellsInRow * this.cellsInCol).fill(null)
 
-    this.bytes = [];
+    this.instructions = new Array(this.cellsInRow).fill('00000000');
 
     this.commands = {
       'MOV': 'green',
-      'PIX': 'red',
-      'ADD': 'blue',
-      'JMP': 'orange'
+      'PIX': 'pink',
+      'JMP': 'bordo',
+      'JNE': 'orange',
+      'JEQ': 'orange',
+      'JGR': 'orange',
+      'ADD': 'aqua',
+      'SUB': 'aqua',
+      'MUL': 'aqua',
+      'DIV': 'aqua',
+      'MOD': 'aqua',
     }
-
-    this.commandsCodes = {
-      'MOV': 'A1',
-      'PIX': 'A2',
-      'ADD': 'A3',
-      'JMP': 'A4'
-    }
-
 
     this.loadImages();
 
+  }
+
+  compileFonts() {
+    this.colors = {
+      white: this.fontImage,
+      black: this.copyFont('#222'),
+      blue: this.copyFont('#384972'),
+      lightblue: this.copyFont('#54aff7'), // 6baef1
+      grey: this.copyFont('#5d5751'),
+      green: this.copyFont('#3d8154'), //  4f7f58
+      lightgreen: this.copyFont('#6ddd64'), //  8ada73
+      red: this.copyFont('#e9415b'), //  d74f5e
+      orange: this.copyFont('#9f5841'), //  965b46
+      pink: this.copyFont('#ed85aa'),
+      bordo: this.copyFont('#743253'), // jmp
+      aqua: this.copyFont('#807999'), // add
+
+    };
   }
 
   getCellPosition(pos) {
@@ -246,7 +266,7 @@ class Box256 {
       }
     }
 
-    this.drawByteMemory(byteIndex, isZero);
+    this.drawByteMemory(byteIndex);
 
   }
 
@@ -272,30 +292,82 @@ class Box256 {
     }
   }
 
-  drawByteMemory(byteIndex) {
-    var ctrlPos = byteIndex * 3;
-    var chars = this.getByteChars(byteIndex);
+  getWordFromByte(chars) {
+    var word = '';
+    for (var i = 0; i < 3; i++) {
+      word += chars[i] ? chars[i][0] : '0';
+    }
+    return word;
+  }
 
+  getNumFromByte(chars) {
+    var num = '';
+    for (var i = 1; i < 3; i++) {
+      num += chars[i] ? chars[i][0] : '0';
+    }
+    return num;
+  }
+
+  drawByteMemory(byteIndex) {
     var byteNum =  byteIndex % 4;
     var line = ~~(byteIndex / 4);
-    //If no control char
-    if (!chars[0] && (!chars[1] || !chars[2])) {
-        this.drawText('00', (20 + byteNum*2) * 16 , (line + 3)*16, 'green');
-    } else {
-      var value = chars[1][0] + chars[2][0];
-      if (byteNum == 0) {
-        var cmd = chars[0][0] + value;
-        if (this.commandsCodes[cmd]) {
-          value = this.commandsCodes[cmd];
-        }
-      }
 
-      this.drawText(value, (20 + byteNum*2) * 16 , (line + 3)*16, 'lightgreen');
+    var error = true;
+
+    var cmdByteIdx = line * 4;
+    var cmdNum = '00';
+
+    // First check COMMAND byte
+    var cmdChars = this.getByteChars(cmdByteIdx);
+    var cmd = this.getWordFromByte(cmdChars);
+
+    // If command exists - validate it
+    if (this.commands[cmd]) {
+      var res = this.validateCommand(cmd, cmdByteIdx);
+      if (res) {
+        cmdNum = res;
+        error = false;
+      } else {
+        cmdNum = '00';
+        error = true;
+      }
+    } else {
+      // If valid number inserted
+      if ( /^.+[0-9A-F]{2}$/.test(cmd) ) {
+        error = false;
+        cmdNum = cmd.substr(1);
+      } else {
+        //Draw 00
+        error = true;
+        cmdNum = '00'
+      }
     }
 
+    var idx = cmdByteIdx;
+    var color,chars,num;
+    for (var i = 0; i < 4; i++) {
+      if (i == 0) {
+        num = cmdNum;
+      }else {
+        idx++;
+        num = this.getNumFromByte(this.getByteChars(idx));
+      }
+
+      color = error ? 'red': (num == '00' ? 'green' : 'lightgreen');
+      this.drawText(num, (20 + i*2) * 16 , (line + 3)*16, color);
+    }
 
   }
 
+
+
+  validateCommand(cmd, idx) {
+    return CommandValidator.validate(cmd,
+      this.getWordFromByte(this.getByteChars(idx + 1)),
+      this.getWordFromByte(this.getByteChars(idx + 2)),
+      this.getWordFromByte(this.getByteChars(idx + 3))
+    );
+  }
 
   drawTextChar(char, color) {
     this.drawText(char, this.activeCell.x * 16 , this.activeCell.y * 16, color, '#222');
@@ -316,19 +388,7 @@ class Box256 {
     this.fontImage.src = 'dos_font_black.png'
   }
 
-  compileFonts() {
-    this.colors = {
-      white: this.fontImage,
-      black: this.copyFont('#222'),
-      blue: this.copyFont('#384972'),
-      lightblue: this.copyFont('#6baef1'),
-      grey: this.copyFont('#5d5751'),
-      green: this.copyFont('#4f7f58'),
-      lightgreen: this.copyFont('#8ada73'),
-      red: this.copyFont('#d74f5e'),
-      orange: this.copyFont('#965b46'),
-    };
-  }
+
 
   copyFont(color) {
     var cnv = document.createElement('canvas');
