@@ -1,14 +1,4 @@
 
-function con(str) {
-  color = '#';
-  var arr = str.split(' ');
-  arr.forEach(n => {
-    n = parseFloat(n.trim());
-    color += n.toString(16);
-  })
-  return color
-}
-
 class Box256 {
 
   constructor() {
@@ -28,115 +18,66 @@ class Box256 {
 
     this.layers = {
       back: layerFactory.create('back', 1),
-      nums: layerFactory.create('nums', 2),
-      data: layerFactory.create('data', 3),
+      data: layerFactory.create('data', 2),
     }
 
     this.drawBackground();
 
-    var kb;
-    this.kb = kb = new KeyboardManager(this);
-
-    kb.down('down', () => {
-      if (this.activeCell.y < 12) {
-        this.resetCursorInterval();
-        this.drawCursor(false);
-        this.activeCell.y++;
-        this.drawCursor(true);
-        this.runCursor(true);
-      }
-    });
-
-    kb.down('up', () => {
-      if (this.activeCell.y > 3) {
-        this.resetCursorInterval();
-        this.drawCursor(false);
-        this.activeCell.y--;
-        this.drawCursor(true);
-        this.runCursor(true);
-      }
-    });
-
-    kb.down('right', () => {
-      this.resetCursorInterval();
-      this.drawCursor(false);
-
-      this.moveRight();
-
-      this.drawCursor(true);
-      this.runCursor(true);
-    });
-
-    kb.down('left', () => {
-      this.resetCursorInterval();
-      this.drawCursor(false);
-
-      this.moveLeft();
-
-      this.drawCursor(true);
-      this.runCursor(true);
-    })
-
-    kb.up('1', () => {
-      console.log('1')
-    })
-
-    window.addEventListener('keyup',function(e) {
-      if (/^[0-9]$/.test(e.key)) {
-        this.insertChar(e.key, 'white');
-      } else if (/^[a-zA-Z]$/.test(e.key)) {
-        this.insertChar(e.key.toUpperCase(), 'orange');
-      } else if (e.key == "@") {
-        this.insertChar('@', 'lightblue');
-      } else if (e.key == "*") {
-        this.insertChar('*', 'red');
-      }
-
-    }.bind(this));
+    setTimeout(()=>{
+      this.attachListeners()
+    },500);
 
     this.cursor = false;
+    this.cursorPos = 0;
 
-    this.activeCell = {
-      x:4, y: 3
-    };
+    this.cellsInRow = 12;
+    this.cellsInCol = 16;
+    this.cSize = 16;
+
+    this.maxCursorPos = this.cellsInRow * this.cellsInCol - 1;
+
+    this.cellsOffset = {x: 4, y: 3};
+
+    this.activeCell = this.getCursorCell();
+
+    this.chars = new Array(this.cellsInRow * this.cellsInCol).fill(null)
 
     this.bytes = [];
+
+    this.commands = {
+      'MOV': 'green',
+      'PIX': 'red',
+      'ADD': 'blue',
+      'JMP': 'orange'
+    }
+
+    this.commandsCodes = {
+      'MOV': 'A1',
+      'PIX': 'A2',
+      'ADD': 'A3',
+      'JMP': 'A4'
+    }
+
 
     this.loadImages();
 
   }
 
-  moveLeft() {
-    var x = this.activeCell.x - 1;
-    if ((x-3) % 4 == 0) {
-      if (x < 4) {
-        if (this.activeCell.y < 4) {
-          return;
-        }
-        this.activeCell.y--;
-        this.activeCell.x = 18;
-      } else {
-        this.activeCell.x -= 2;
-      }
-    } else {
-      this.activeCell.x--;
+  getCellPosition(pos) {
+    var y = ~~(pos / this.cellsInRow);
+    var x = pos % this.cellsInRow;
+
+    // Skip gaps between bytes
+    x+= ~~(x / 3);
+
+    return {
+      x: this.cellsOffset.x + x,
+      y: this.cellsOffset.y + y,
     }
   }
 
-
-  moveRight() {
-    this.activeCell.x++;
-    var x = this.activeCell.x;
-    if ((x-3) % 4 == 0) {
-      if (x > 17) {
-        this.activeCell.y++;
-        this.activeCell.x = 4;
-
-      } else {
-        this.activeCell.x++;
-      }
-
-    }
+  getCursorCell() {
+    return this.getCellPosition(this.cursorPos);
   }
 
   start() {
@@ -150,35 +91,215 @@ class Box256 {
 
   runCursor(initalValue) {
     this.cursor = initalValue;
+    this.drawCursor();
     this.cursorInterval = setInterval(()=>{
       this.cursor = !this.cursor;
       this.drawCursor()
     }, 500);
   }
 
+
   drawCursor(value) {
     if (typeof value == 'undefined') {
       value = this.cursor;
     }
+
+    var charData = this.chars[this.cursorPos] || '0:grey';
+    var char = charData.split(':');
     if (value) {
-      this.drawText('0',
+      this.drawText(char[0],
         this.activeCell.x * 16 , this.activeCell.y * 16,
         'black', '#fff');
     } else {
-      this.drawText('0',
+      this.drawText(char[0],
         this.activeCell.x * 16 , this.activeCell.y * 16,
-       'grey');
+       char[1], '#222');
     }
   }
 
-  insertChar(char, color) {
-    this.resetCursorInterval();
+  removeChar() {
+    this.setChar(null);
+    this.drawCursor(this.cursor);
+  }
 
+  removeCharBack() {
+    if (this.cursorPos < 1) {
+      return;
+    }
+    this.moveCursor(CurosorDir.left)
+    this.setChar(null);
+    this.drawCursor(this.cursor);
+
+  }
+
+  insertChar(char, type) {
+    //CHeck is char valid for current cursor position
+    var pos = this.cursorPos;
+    var rowPos = pos % this.cellsInRow;
+    var valid = false;
+    switch (type) {
+      case "num":
+        if (!(rowPos > 0 && rowPos % 3 == 0) || rowPos < 3) {
+          this.setChar(char);
+          valid = true;
+        }
+        break;
+      case "mem":
+      case "ref":
+        if (rowPos > 0 && rowPos % 3 == 0) {
+          this.setChar(char, type == 'ref' ? 'red':'lightblue');
+          valid = true;
+        }
+        break;
+      case "text":
+        if (rowPos < 3) {
+          this.setChar(char);
+          valid = true;
+        }
+        break;
+    }
+
+    if (valid) {
+      this.moveCursor(CurosorDir.right);
+    }
+  }
+
+  setChar(char, color) {
+    var pos = this.cursorPos;
+    color = color || 'white';
+    this.chars[pos] = char?char+':'+color:null;
+
+    this.updateByte(~~(pos/3));
+  }
+
+  putChar(pos, char, color) {
+    color = color || 'white';
+    this.chars[pos] = char?char+':'+color:null;
+  }
+
+
+  drawDataChar(pos) {
+    var cell = this.getCellPosition(pos);
+    var charData = this.chars[pos] || '0:grey';
+    var char = charData.split(':');
+    this.drawText(char[0],
+      cell.x * 16 , cell.y * 16,
+      char[1], '#222');
+  }
+
+  drawByteChars(byteIndex) {
+    var s = byteIndex * 3;
+    for (i=0; i < 3; i++) {
+      this.drawDataChar(s+i);
+    }
+  }
+
+  getByteChars(byteIndex) {
+    var s = byteIndex * 3;
+    return this.chars.slice(s, s+3);
+  }
+
+  setByteChars(byteIndex, word, color) {
+    var s = byteIndex * 3;
+    for (i=0; i < 3; i++) {
+      var pos = s+i;
+      if (word[i] !== ' ') {
+        this.chars[pos] = word[i]+':'+color;
+      } else {
+        this.chars[pos] = null;
+      }
+      //if (pos != this.cursorPos) {
+        this.drawDataChar(pos);
+      //}
+    }
+  }
+
+  updateByte(byteIndex) {
+    var ctrlCharPos = byteIndex * 3;
+    var chars = this.getByteChars(byteIndex);
+    var isZero = false;
+    if (byteIndex % 4 != 0) {
+      isZero = this.updateNumericsChars(byteIndex, chars);
+    } else {
+      // If command byte
+      var word = ''
+      var char;
+      for (var i=0; char = chars[i], i<3; i++) {
+          word += char ? char[0] : '0';
+      }
+
+      // If valid command exists
+      if (this.commands[word]) {
+        this.setByteChars(byteIndex, word, this.commands[word])
+      } else {
+        // If start from digit or empty- lets update values
+        if ( /^[0-9A-F]{3}$/.test(word) ) {
+          // Mark fist letter grey
+          this.putChar(ctrlCharPos, word[0], 'grey');
+          // Actieate numeric values
+          isZero = this.updateNumericsChars(byteIndex, chars);
+
+        } else {
+          // Other wise disable all byte
+          this.setByteChars(byteIndex, word, 'grey')
+        }
+      }
+    }
+
+    this.drawByteMemory(byteIndex, isZero);
+
+  }
+
+
+  updateNumericsChars(byteIndex, chars) {
+    var ctrlCharPos = byteIndex * 3;
+    // Check if all 3 chars are empty or queal ZERO
+    var zeroChars = 0;
+    for (var i = 0; i < 3; i++) {
+      if(!chars[i] || chars[i][0] == '0') zeroChars++;
+    }
+
+    // Disable byte is all zeros
+    if (zeroChars == 3) {
+      this.setByteChars(byteIndex, '   ', 'grey');
+    } else {
+      // Activate numbers, and set it to zero
+      for (var i = 1; i < 3; i++) {
+        var char = chars[i];
+        this.putChar(ctrlCharPos + i, char ? char[0] : '0');
+        this.drawDataChar(ctrlCharPos + i);
+      }
+    }
+  }
+
+  drawByteMemory(byteIndex) {
+    var ctrlPos = byteIndex * 3;
+    var chars = this.getByteChars(byteIndex);
+
+    var byteNum =  byteIndex % 4;
+    var line = ~~(byteIndex / 4);
+    //If no control char
+    if (!chars[0] && (!chars[1] || !chars[2])) {
+        this.drawText('00', (20 + byteNum*2) * 16 , (line + 3)*16, 'green');
+    } else {
+      var value = chars[1][0] + chars[2][0];
+      if (byteNum == 0) {
+        var cmd = chars[0][0] + value;
+        if (this.commandsCodes[cmd]) {
+          value = this.commandsCodes[cmd];
+        }
+      }
+
+      this.drawText(value, (20 + byteNum*2) * 16 , (line + 3)*16, 'lightgreen');
+    }
+
+
+  }
+
+
+  drawTextChar(char, color) {
     this.drawText(char, this.activeCell.x * 16 , this.activeCell.y * 16, color, '#222');
-
-    this.moveRight();
-    this.runCursor(true);
-    this.drawCursor(true);
+    this.moveCursor(CurosorDir.right);
   }
 
   drawBackground() {
@@ -224,9 +345,9 @@ class Box256 {
   }
 
   draw() {
-    this.activeLayer = this.layers.nums;
+    this.activeLayer = this.layers.back;
     var lines = []
-    for (var i=0;i<40;i++) {
+    for (var i=0;i<64;i++) {
       if (i%4 == 0) {
         var n = i.toString(16).toUpperCase();
         if(i<16) {
@@ -251,13 +372,13 @@ class Box256 {
     this.drawText(lines.join("\n"), 16, y, 'blue');
 
     var nulls = []
-    for (var i=0;i<10;i++) {
+    for (var i=0;i<16;i++) {
       nulls.push('000 000 000 000')
     }
     this.drawText(nulls.join("\n"), 16 * 4, y, 'grey');
 
     var memory = []
-    for (var i=0;i<10;i++) {
+    for (var i=0;i<16;i++) {
       memory.push('00000000')
     }
     this.drawText(memory.join("\n"), 20 * 16 , y, 'green');
@@ -288,13 +409,8 @@ class Box256 {
     var cx = (code % 16) * 9 + 1;
 
     // Clear
-    if (bgcolor) {
-      cxt.set('fillStyle', bgcolor);
-      cxt.fillRect(x, y, size, size);
-    } else {
-      cxt.clearRect(x, y, size, size);
-    }
-
+    cxt.set('fillStyle', bgcolor || '#222');
+    cxt.fillRect(x, y, size, size);
 
     // Draw char
     cxt.drawImage(this.font,
@@ -305,53 +421,87 @@ class Box256 {
 
   }
 
-  drawInveretedChar(char, x, y) {
-    const cxt = this.layers.nums;
+  attachListeners() {
 
-    var size = 8;
-    var fontSize = 8;
-    var code = char.charCodeAt();
+    window.addEventListener('keydown',function(e) {
+      if(e.key == 'Tab') {
+        e.preventDefault();
+        return;
+      }
 
-    // Clear
-    cxt.clearRect(x, y, size, size);
-    if (code == 32) {
-      // Code for Space
-      return;
-    }
+      if (e.keyCode == 46) {// delete
+        this.removeChar();
+        return;
+      } else if (e.keyCode == 8) {// backspace
+        this.removeCharBack();
+        return;
+      }
 
-    var cy = parseInt(code / 16, 10) * 9 + 1;
-    var cx = (code % 16) * 9 + 1;
+    }.bind(this))
 
-    cxt.save();
+    window.addEventListener('keydown',function(e) {
+      const code = e.keyCode;
 
-    //Clear clipping path around char
-    cxt.beginPath();
-    cxt.moveTo(x, y);
-    cxt.lineTo(x + size, y);
-    cxt.lineTo(x + size, y +size);
-    cxt.lineTo(x, y + size);
-    cxt.closePath();
-    cxt.clip();
-
-    //Draw char
-    cxt.drawImage(this.font,
-      cx, cy, fontSize, fontSize,
-      x, y,
-      size, size
-    );
-    // Invert
-    cxt.cxt.globalCompositeOperation = 'source-out';
-    // Fill all clipped area exept char with color
-    cxt.set('fillStyle', '#fff');
-    cxt.fillRect(x, y, size, size);
-
-    cxt.restore();
+      if (/^[0-9a-fA-F]$/.test(e.key)) {
+        this.insertChar(e.key.toUpperCase(), 'num');
+      } else if (/^[a-zA-Z]$/.test(e.key)) {
+        this.insertChar(e.key.toUpperCase(), 'text');
+      } else if (e.key == "@") {
+        this.insertChar('@', 'mem');
+      } else if (e.key == "*") {
+        this.insertChar('*', 'ref');
+      } else if (code > 36 && code <  41) {
+        this.moveCursor(code - 37);
+      }
+    }.bind(this));
   }
 
+  moveCursor(dir) {
+    var pos = this.cursorPos;
+    var next = pos;
 
+    //Check if we can move
+    switch(dir) {
+      case CurosorDir.left:
+        if (pos > 0) next--;
+        break;
+      case CurosorDir.right:
+        if (pos < this.maxCursorPos) next++;
+        break;
+      case CurosorDir.up:
+        next = pos - this.cellsInRow;
+        if (next < 0) next = pos;
+        break;
+      case CurosorDir.down:
+        next = pos + this.cellsInRow;
+        if (next > this.maxCursorPos) next = pos;
+        break;
+    }
+
+    if (next != this.cursorPos) {
+      this.resetCursorInterval();
+      // Draw previous value as is
+      this.drawCursor(false);
+
+      this.setCursor(next);
+      this.runCursor(true);
+    }
+
+  }
+
+  setCursor(pos) {
+    this.cursorPos = pos;
+    this.activeCell = this.getCursorCell();
+  }
 
 }
 
+var CurosorDir = {
+  left: 0,
+  up: 1,
+  right: 2,
+  down: 3
+}
 
 
 
