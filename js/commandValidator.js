@@ -8,9 +8,34 @@ class commandValidator {
     return false
   }
 
+  isRef(byte) {
+    if (byte[0] !== '@' && byte[0] !== '*') {
+      return false;
+    }
+    return true;
+  }
 
   validateADD(a,b,c) {
-    console.log(a,b,c)
+    if (! this.isRef(a)) {
+       return false;
+    }
+
+    return 'FF';
+  }
+
+  validateMOV(a,b) {
+    if (! this.isRef(b)) {
+       return false;
+    }
+    return 'FF';
+  }
+
+  validatePIX(a,b) {
+    return 'FF';
+  }
+
+  validateJMP(a) {
+    return 'FF'
   }
 
 }

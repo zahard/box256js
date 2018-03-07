@@ -45,7 +45,7 @@ class Box256 {
 
     this.chars = new Array(this.cellsInRow * this.cellsInCol).fill(null)
 
-    this.instructions = new Array(this.cellsInRow).fill('00000000');
+    this.instructions = new Array(this.cellsInRow * this.cellsInCol).fill('00')
 
     this.commands = {
       'MOV': 'green',
@@ -343,6 +343,7 @@ class Box256 {
       }
     }
 
+    var lineCommand = []
     var idx = cmdByteIdx;
     var color,chars,num;
     for (var i = 0; i < 4; i++) {
@@ -353,9 +354,13 @@ class Box256 {
         num = this.getNumFromByte(this.getByteChars(idx));
       }
 
+      this.instructions[(line*4)+i] = num;
+
       color = error ? 'red': (num == '00' ? 'green' : 'lightgreen');
       this.drawText(num, (20 + i*2) * 16 , (line + 3)*16, color);
     }
+
+
 
   }
 
