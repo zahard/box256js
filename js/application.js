@@ -5,13 +5,20 @@ var CommandValidator = new commandValidator();
 class Box256 {
 
   constructor() {
+
     this.width = 640;
     this.height = 640;
 
     this.wrapper = $('wrapper');
-
     this.wrapper.style.width = this.width + 'px';
     this.wrapper.style.height = this.height + 'px';
+
+    this.view = new ViewRender({
+      wrapper: this.wrapper,
+      height: this.height,
+      width: this.width,
+      cellSize: 16,
+    });
 
     var layerFactory = new LayersFactory({
         size: [this.width, this.height],
@@ -43,9 +50,15 @@ class Box256 {
 
     this.activeCell = this.getCursorCell();
 
-    this.chars = new Array(this.cellsInRow * this.cellsInCol).fill(null)
+    this.chars = new Array(this.cellsInRow * this.cellsInCol);
+    this.colorMap = new Array(this.cellsInRow * this.cellsInCol);
 
-    this.instructions = new Array(this.cellsInRow * this.cellsInCol).fill('00')
+    this.memory = new Array(this.cellsInRow * this.cellsInCol).fill('00')
+
+    this.memory[0] = '01'
+    this.memory[1] = '0A'
+    this.memory[2] = '04'
+    this.memory[3] = '00'
 
     this.commands = {
       'MOV': 'green',
@@ -61,12 +74,27 @@ class Box256 {
       'MOD': 'aqua',
     }
 
+    this.colors = {
+      white: 0,
+      black: 1,
+      blue: 2,
+      lightblue: 3,
+      grey:3,
+      green: 4,
+      lightgreen: 5,
+      red: 6,
+      orange: 7,
+      pink: 8,
+      bordo: 9,
+      aqua: 10
+    }
+
     this.loadImages();
 
   }
 
   compileFonts() {
-    this.colors = {
+    this.fontColors = {
       white: this.fontImage,
       black: this.copyFont('#222'),
       blue: this.copyFont('#384972'),
@@ -81,6 +109,25 @@ class Box256 {
       aqua: this.copyFont('#807999'), // add
 
     };
+  }
+
+  runCode() {
+    var s = 0;
+    this.runInstruction(s);
+  }
+
+  runInstruction(idx) {
+    var cmd = this.memory[idx];
+    var a = this.memory[idx+1];
+    var b = this.memory[idx+2];
+    var c = this.memory[idx+3];
+
+    return this.execCommand(cmd, a, b, c) || idx + 4;
+  }
+
+  execCommand(cmd, a,b,c) {
+    var memory = this.memory;
+    return CommandValidator.exec(cmd, [a,b,c], memory);
   }
 
   getCellPosition(pos) {
@@ -124,16 +171,16 @@ class Box256 {
       value = this.cursor;
     }
 
-    var charData = this.chars[this.cursorPos] || '0:grey';
-    var char = charData.split(':');
+    var char = this.chars[this.cursorPos] || '0';
+    var color = this.colorMap[this.cursorPos] || 'grey';
     if (value) {
-      this.drawText(char[0],
+      this.drawText(char,
         this.activeCell.x * 16 , this.activeCell.y * 16,
         'black', '#fff');
     } else {
-      this.drawText(char[0],
+      this.drawText(char,
         this.activeCell.x * 16 , this.activeCell.y * 16,
-       char[1], '#222');
+       color, '#222');
     }
   }
 
@@ -186,25 +233,24 @@ class Box256 {
 
   setChar(char, color) {
     var pos = this.cursorPos;
-    color = color || 'white';
-    this.chars[pos] = char?char+':'+color:null;
-
+    this.putChar(pos, char, color)
     this.updateByte(~~(pos/3));
   }
 
   putChar(pos, char, color) {
     color = color || 'white';
-    this.chars[pos] = char?char+':'+color:null;
+    this.chars[pos] = char ? char : null;
+    this.colorMap[pos] = char ? color : null;
   }
 
 
   drawDataChar(pos) {
     var cell = this.getCellPosition(pos);
-    var charData = this.chars[pos] || '0:grey';
-    var char = charData.split(':');
-    this.drawText(char[0],
+    var char = this.chars[pos] || '0';
+    var color = this.colorMap[pos] || 'grey';
+    this.drawText(char,
       cell.x * 16 , cell.y * 16,
-      char[1], '#222');
+      color, '#222');
   }
 
   drawByteChars(byteIndex) {
@@ -224,9 +270,9 @@ class Box256 {
     for (i=0; i < 3; i++) {
       var pos = s+i;
       if (word[i] !== ' ') {
-        this.chars[pos] = word[i]+':'+color;
+        this.putChar(pos, word[i], color)
       } else {
-        this.chars[pos] = null;
+        this.putChar(pos, null);
       }
       //if (pos != this.cursorPos) {
         this.drawDataChar(pos);
@@ -266,7 +312,8 @@ class Box256 {
       }
     }
 
-    this.drawByteMemory(byteIndex);
+    //this.drawByteMemory(byteIndex);
+    this.updateMemory(byteIndex);
 
   }
 
@@ -290,6 +337,12 @@ class Box256 {
         this.drawDataChar(ctrlCharPos + i);
       }
     }
+  }
+
+  updateMemory(byteIndex) {
+    var byteNum =  byteIndex % 4;
+    var line = ~~(byteIndex / 4);
+    console.log('update line', line)
   }
 
   getWordFromByte(chars) {
@@ -354,7 +407,7 @@ class Box256 {
         num = this.getNumFromByte(this.getByteChars(idx));
       }
 
-      this.instructions[(line*4)+i] = num;
+      this.memory[(line*4)+i] = num;
 
       color = error ? 'red': (num == '00' ? 'green' : 'lightgreen');
       this.drawText(num, (20 + i*2) * 16 , (line + 3)*16, color);
@@ -451,7 +504,7 @@ class Box256 {
   }
 
   drawText(text, x, y, color, bgcolor) {
-    this.font = this.colors[color];
+    this.font = this.fontColors[color];
     var size = 16;
     var dx = 0;
     for (let i = 0; i < text.length; i++) {

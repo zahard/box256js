@@ -6,6 +6,7 @@ var resources = [
     'Layer',
     'KeyboardManager',
     'Registry',
+    'ViewRender',
     'commandValidator',
     'application'
 ];
