@@ -60,6 +60,12 @@ canvas {
     cursor: default;
 }
 
+canvas {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: optimize-contrast;
+}
+
+
 img {
     display: none;
 }

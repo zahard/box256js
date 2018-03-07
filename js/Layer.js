@@ -45,6 +45,11 @@ function Layer(canvas, width, height, z_index, name) {
  	}
 
  	this.cxt = canvas.getContext('2d');
+
+  this.cxt.webkitImageSmoothingEnabled = false;
+  this.cxt.mozImageSmoothingEnabled = false;
+  this.cxt.imageSmoothingEnabled = false; /// future
+
 	this.layerName = name;
  }
 
