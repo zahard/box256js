@@ -45,6 +45,8 @@ class Box256 {
       'MOD': 'aqua',
     }
 
+    this.stepDelay = 1500;
+
     /*
     this.colors = {
       white: 0,
@@ -93,6 +95,14 @@ class Box256 {
     this.runCode(0);
   }
 
+  step() {
+
+  }
+
+  stop() {
+
+  }
+
   runCode(line) {
     if (line < this.linesCount) {
 
@@ -101,7 +111,6 @@ class Box256 {
       const next = this.runInstruction(line);
       if (next == -1) {
         // Prev instruction was not found
-        // got to next one immidiatly
         this.drawUnactiveLine(line);
         this.runCode(line + 1);
       } else {
@@ -109,7 +118,7 @@ class Box256 {
         setTimeout(() => {
           this.drawUnactiveLine(line);
           this.runCode(next);
-        }, 250)
+        }, this.stepDelay)
       }
     } else {
       console.log('Finsih')
@@ -355,7 +364,6 @@ class Box256 {
       }
     }
 
-    //this.drawByteMemory(byteIndex);
     this.updateMemory(byteIndex);
 
   }
@@ -523,7 +531,83 @@ class Box256 {
     this.activeCell = this.getCursorCell();
   }
 
+
+  loadProgramm(lines) {
+    lines.forEach((line, i) => {
+      this.loadLine(line, i);
+    });
+  }
+
+  loadLine(line, lineIdx) {
+    var pos = lineIdx * this.cellsInRow;
+    var color;
+    var types = [];
+    var cmd = line[0] + line[1];
+    var command = this.cmdManager.commandMap[cmd];
+    if (command) {
+      var cmdName = command.substr(0,3);
+      types = command.substr(4).split('_');
+      color = this.commands[cmdName];
+
+      // Draw command
+      for (var i = 0; i < 3; i++) {
+        this.putChar(pos + i, cmdName[i], color);
+        this.drawDataChar(pos + i);
+      }
+    } else {
+      this.putChar(pos + 1, line[0], color);
+      this.putChar(pos + 2, line[1], color);
+      this.drawDataChar(pos + 1);
+      this.drawDataChar(pos + 2);
+    }
+
+
+    var num, color, p;
+
+    var diff = 2;
+    var r = 0;
+    for (var i = 2; i < 8; i += 2) {
+      p = pos + diff;
+
+      color = 'white';
+
+      this.putChar(p + i, line[i], color);
+      this.putChar(p + i +1, line[i+1], color);
+
+      this.drawDataChar(p +i);
+      this.drawDataChar(p +i +1);
+
+      var type = types[r];
+      if (type) {
+        if (type == 'm') {
+          this.putChar(p + i - 1, '@', 'lightblue');
+          this.drawDataChar(p + i - 1);
+        } else if (type == 'p') {
+          this.putChar(p + i - 1, '*', 'red');
+          this.drawDataChar(p + i - 1);
+        }
+      }
+
+      diff++;
+      r++;
+    }
+
+    this.updateMemory(~~(pos/3));
+  }
+
 }
+
+var test = [
+'01FF1F00',
+'01EE1E00',
+'01DD1D00',
+
+'01CC2300',
+'01BB2200',
+'01AA2100',
+
+]
+
 
 var CurosorDir = {
   left: 0,
