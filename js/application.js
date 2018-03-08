@@ -45,7 +45,7 @@ class Box256 {
       'MOD': 'aqua',
     }
 
-    this.stepDelay = 1500;
+    this.stepDelay = 1000;
 
     /*
     this.colors = {
@@ -88,6 +88,8 @@ class Box256 {
 
   init() {
     this.runCursor(false);
+
+    this.running = false;
   }
 
   run() {
@@ -95,27 +97,57 @@ class Box256 {
     this.runCode(0);
   }
 
+
   step() {
+    if (!this.running) {
+      this.resetCursorInterval();
+      this.running = true;
+      this.currentStep = 0;
+      this.drawActiveLine(this.currentStep);
+    } else {
+      let next = this.runInstruction(this.currentStep);
+      const prev = this.currentStep;
+
+      next = next != -1 ? next : prev + 1;
+
+      if (next < this.linesCount) {
+        this.currentStep = next
+        this.drawActiveLine(this.currentStep);
+        this.drawUnactiveLine(prev);
+      } else {
+        this.stop();
+      }
+
+    }
 
   }
 
   stop() {
+    var prev = this.currentStep;
+    this.currentStep = -1;
 
+    this.drawUnactiveLine(prev);
+
+    this.running = false;
+    this.runCursor(false);
   }
 
   runCode(line) {
     if (line < this.linesCount) {
+      this.currentStep = line;
 
       this.drawActiveLine(line);
 
       const next = this.runInstruction(line);
       if (next == -1) {
         // Prev instruction was not found
+        this.currentStep = line + 1;
         this.drawUnactiveLine(line);
         this.runCode(line + 1);
       } else {
         // If instuction was found make a delay
         setTimeout(() => {
+          this.currentStep = next;
           this.drawUnactiveLine(line);
           this.runCode(next);
         }, this.stepDelay)
@@ -123,6 +155,7 @@ class Box256 {
     } else {
       console.log('Finsih')
       this.runCursor(false);
+      this.currentStep = -1;
     }
   }
 
@@ -295,6 +328,9 @@ class Box256 {
       const char = this.chars[pos] || '0';
       this.view.drawText(char, cell, 'black', '#fff');
     }
+
+    this.drawMemoryLine(line, false, true);
+
   }
 
   drawUnactiveLine(line) {
@@ -302,6 +338,8 @@ class Box256 {
     for (let i = 0; i < 12; i++) {
       this.drawDataChar(start + i)
     }
+
+    this.drawMemoryLine(line, false);
   }
 
 
@@ -436,16 +474,21 @@ class Box256 {
     this.drawMemoryLine(line, error);
   }
 
-  drawMemoryLine(line, error) {
+  drawMemoryLine(line, error, invert) {
     const index = line * 4;
-    let value, color;
+    let value, color, bg;
     for (let i=0; i < 4; i++) {
       value = this.memory.get(index+i);
       color = error ? 'red': (value == '00' ? 'green' : 'lightgreen');
+
+      if (line == this.currentStep || invert) {
+        color = 'black';
+        bg = '#6ddd64';
+      }
       this.view.drawText(value, {
           x: this.memCellOffset.x + i * 2,
           y: this.memCellOffset.y + line,
-        }, color);
+        }, color, bg);
     }
   }
 
