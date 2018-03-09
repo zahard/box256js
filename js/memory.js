@@ -1,11 +1,17 @@
 
-
 class Memory {
 
   constructor(size) {
     this.len = size;
     this._memory = new Array(size).fill('00');
-    this._changedLines = [];
+  }
+
+  getCopy() {
+    return this._memory.slice()
+  }
+
+  reset(newMemoryArr) {
+    this._memory = newMemoryArr;
   }
 
   get(idx) {
@@ -14,16 +20,5 @@ class Memory {
 
   set(idx, val) {
     this._memory[idx] = val;
-    this._changedLines.push(~~(idx/4));
-  }
-
-  clearChangedLines() {
-    this._changedLines = [];
-  }
-
-  flushChangedLines() {
-    var changed = this._changedLines;
-    this._changedLines = [];
-    return changed;
   }
 }

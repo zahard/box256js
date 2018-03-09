@@ -1,96 +1,105 @@
 
 class CommandManager {
 
-  constructor() {
+  constructor(screen) {
 
+    this.screen = screen;
+
+    // r - readable, w - writable (ref only)
     this.commands = {
-      'MOV': 'green',
-      'PIX': 'pink',
-      'JMP': 'bordo',
-      'JNE': 'orange',
-      'JEQ': 'orange',
-      'JGR': 'orange',
-      'ADD': 'aqua',
-      'SUB': 'aqua',
-      'MUL': 'aqua',
-      'DIV': 'aqua',
-      'MOD': 'aqua',
+      'MOV': 'rw',
+      'PIX': 'rr',
+      'JMP': 'r',
+      'JNE': 'rrr',
+      'JEQ': 'rrr',
+      'JGR': 'rrr',
+      'ADD': 'rrw',
+      'SUB': 'rrw',
+      'MUL': 'rrw',
+      'DIV': 'rrw',
+      'MOD': 'rrw',
+    };
+
+    this.generateOpCodes();
+  }
+
+  generateOpCodes() {
+    var opCodes = {};
+    var args;
+    var commandCode = 0;
+    for (var cmd in this.commands) {
+      args = this.commands[cmd];
+
+      var types = [];
+      for (var i = 0; i< args.length; i++) {
+        this.appendArgType(types, args[i]);
+      }
+
+      for (var i = 0; i < types.length; i++) {
+        commandCode++;
+        opCodes[cmd+types[i]] = this.toHex(commandCode);
+      }
     }
 
-    /*
-      c, m, p - types of function arguments
-      c_m -> contant to memory
-      m_p -> memory to pointer
-      c_p ->constant to pointer etc
-    */
-    this.commandList = {
-      'MOV_c_m': '01',
-      'MOV_m_m': '02',
-      'MOV_p_m': '03',
-      'MOV_c_p': '04',
-      'MOV_m_p': '05',
-      'MOV_p_p': '06',
-
-      'JMP_c':'11',
-      'JMP_m':'12',
-      'JMP_p':'13',
-
-
-      'PIX_c_c': '21',
-      'PIX_c_m': '22',
-      'PIX_c_p': '23',
-      'PIX_m_c': '24',
-      'PIX_m_m': '25',
-      'PIX_m_p': '26',
-      'PIX_p_c': '27',
-      'PIX_p_m': '28',
-      'PIX_p_p': '29',
-
-      'ADD_m_c_c': '30',
-      'ADD_m_c_m': '31',
-      'ADD_m_c_p': '32',
-      'ADD_m_m_c': '33',
-      'ADD_m_m_m': '34',
-      'ADD_m_m_p': '35',
-      'ADD_m_p_c': '36',
-      'ADD_m_p_m': '37',
-      'ADD_m_p_p': '38',
-
-      'ADD_p_c_c': '39',
-      'ADD_p_c_m': '3A',
-      'ADD_p_c_p': '3B',
-      'ADD_p_m_c': '3C',
-      'ADD_p_m_m': '3D',
-      'ADD_p_m_p': '3E',
-      'ADD_p_p_c': '3F',
-      'ADD_p_p_m': '40',
-      'ADD_p_p_p': '41',
-
-      'JGR_c_m_c':'42',
-      'JGR_m_c_c':'43'
-
-    }
+    this.opCodes = opCodes;
 
     this.commandMap = {};
-    for (var name in this.commandList) {
-      this.commandMap[this.commandList[name]] = name;
+    for (var name in this.opCodes) {
+      this.commandMap[this.opCodes[name]] = name;
+    }
+  }
+
+  appendArgType(types, readType) {
+    //  c - contant to memory
+    //  m - memory
+    //  c -pointer to memory
+
+    var modifiers = readType == 'r'
+      ? ['_c', '_m', '_p']
+      : ['_m', '_p'];
+    var mLen = modifiers.length;
+
+    if (!types.length) {
+      Array.prototype.push.apply(types, modifiers.slice());
+      return;
     }
 
+    var newValues = [];
+    for (var i = 0; i < mLen - 1; i++) {
+      newValues = newValues.concat(types);
+    }
+
+    Array.prototype.push.apply(types, newValues);
+
+    var limit = types.length / mLen;
+    for (var t = 0; t < mLen; t++) {
+      for (var i = limit * t; i < limit * (t+1); i++) {
+        types[i] += modifiers[t];
+      }
+    }
   }
 
   commandExists(cmd) {
     return (typeof this.commands[cmd] !== 'undefined');
   }
 
-  setView(view) {
-    this.view = view;
+  setMemory(memory) {
+    this.memory = memory;
   }
 
-  validate(cmd, A, B, C) {
-    if (this['validate'+ cmd]) {
-      return this['validate'+ cmd](A,B,C);
+  validate(cmd, a, b, c) {
+    var argsTypes = this.commands[cmd];
+    var args = [a, b, c].slice(0, argsTypes.length);
+
+    for (var i=0; i<args.length;i++) {
+      // CHeck if writable value passed
+      if (argsTypes[i] == 'w' && !this.isRef(args[i])) {
+        return false;
+      }
     }
-    return false
+
+    var command = cmd + '_' + this.getArgTypes(args);
+    return this.opCodes[command];
   }
 
   isRef(byte) {
@@ -100,39 +109,7 @@ class CommandManager {
     return true;
   }
 
-  validateADD(a,b,c) {
-    if (! this.isRef(a)) {
-       return false;
-    }
-    var cmd = 'ADD_' + this.getArgTypes(a,b,c);
-    return this.commandList[cmd]
-  }
-
-  validateMOV(a,b) {
-    if (! this.isRef(b)) {
-       return false;
-    }
-    var cmd = 'MOV_' + this.getArgTypes(a,b);
-    return this.commandList[cmd]
-  }
-
-  validatePIX(a,b) {
-    var cmd = 'PIX_' + this.getArgTypes(a,b);
-    return this.commandList[cmd]
-  }
-
-  validateJMP(a) {
-    var cmd = 'JMP_' + this.getArgTypes(a);
-    return this.commandList[cmd]
-  }
-
-  validateJGR(a,b,c) {
-    var cmd = 'JGR_' + this.getArgTypes(a,b,c);
-    return this.commandList[cmd]
-  }
-
-  getArgTypes() {
-    var args = Array.prototype.slice.call(arguments);
+  getArgTypes(args) {
     return args.map(arg => {
       if(arg[0] == '@') return 'm';
       if(arg[0] == '*') return 'p';
@@ -141,101 +118,135 @@ class CommandManager {
   }
 
 
-  exec(cmdEnum, args, memory) {
+  exec(cmdEnum, args) {
     var cmd = this.commandMap[cmdEnum];
     if (!cmd) {
       //Command not found, skip
-      return -1;
+      return;
     }
 
     var cmdName = cmd.substr(0,3);
     var argTypes = cmd.substr(4).split('_');
 
-    switch (cmdName) {
-      case "ADD":
-        this.execADD(memory, args, argTypes);
-        break;
-      case "MOV":
-        this.execMOV(memory, args, argTypes);
-        break;
-      case "JMP":
-        return this.execJMP(memory, args, argTypes);
-        break;
-      case "JGR":
-        return this.execJGR(memory, args, argTypes);
-        break;
-      case "PIX":
-        return this.execPIX(memory, args, argTypes);
-        break;
+    if (this['exec'+ cmdName]) {
+      return this['exec'+ cmdName].call(this, args, argTypes);
     }
   }
 
-  execADD(memory, args, argTypes) {
-    var a = this.getValue(memory, args[0], argTypes[0]);
-    var b = this.getValue(memory, args[1], argTypes[1]);
-    var c = this.getValue(memory, args[2], argTypes[2]);
-    this.setValue(memory, b + c, args[0], argTypes[0]);
+  execMOV(args, argTypes) {
+    var a = this.getValue(args[0], argTypes[0]);
+    this.setValue(a, args[1], argTypes[1]);
   }
 
-  execMOV(memory, args, argTypes) {
-    var a = this.getValue(memory, args[0], argTypes[0]);
-    this.setValue(memory, a, args[1], argTypes[1]);
+  execPIX(args, argTypes) {
+    var a = this.getValue(args[0], argTypes[0]);
+    var b = this.getValue(args[1], argTypes[1]);
+    var y = ~~(a / 16);
+    var x = a % 16;
+
+    this.screen.drawPixel(x,y, b);
   }
 
-  execJMP(memory, args, argTypes) {
-    var jmpTo = this.getValue(memory, args[0], argTypes[0]);
+  execJMP(args, argTypes) {
+    var jmpTo = this.getValue(args[0], argTypes[0]);
     return jmpTo;
   }
 
-
-  execJGR(memory, args, argTypes) {
-    var a = this.getValue(memory, args[0], argTypes[0]);
-    var b = this.getValue(memory, args[1], argTypes[1]);
+  execJGR(args, argTypes) {
+    var a = this.getValue(args[0], argTypes[0]);
+    var b = this.getValue(args[1], argTypes[1]);
     if (a > b) {
-      var jmpTo = this.getValue(memory, args[2], argTypes[2]);
-      return jmpTo;
+      var jumpTo = this.getValue(args[2], argTypes[2]);
+      return jumpTo;
     }
   }
 
-  execPIX(memory, args, argTypes) {
-    var a = this.getValue(memory, args[0], argTypes[0]);
-    var b = this.getValue(memory, args[1], argTypes[1]);
-    var y = ~~(a / 16);
-    var x =a % 16;
-    this.view.drawPixel(x,y, b);
+  execJEQ(args, argTypes) {
+    var a = this.getValue(args[0], argTypes[0]);
+    var b = this.getValue(args[1], argTypes[1]);
+    if (a === b) {
+      var jumpTo = this.getValue(args[2], argTypes[2]);
+      return jumpTo;
+    }
   }
 
-  getValue(memory, val, type) {
+  execJNE(args, argTypes) {
+    var a = this.getValue(args[0], argTypes[0]);
+    var b = this.getValue(args[1], argTypes[1]);
+    if (a !== b) {
+      var jumpTo = this.getValue(args[2], argTypes[2]);
+      return jumpTo;
+    }
+  }
+
+  execADD(args, argTypes) {
+    var a = this.getValue(args[0], argTypes[0]);
+    var b = this.getValue(args[1], argTypes[1]);
+    this.setValue(a + b, args[2], argTypes[2]);
+  }
+
+  execSUB(args, argTypes) {
+    var a = this.getValue(args[0], argTypes[0]);
+    var b = this.getValue(args[1], argTypes[1]);
+    this.setValue(a - b, args[2], argTypes[2]);
+  }
+
+  execMUL(args, argTypes) {
+    var a = this.getValue(args[0], argTypes[0]);
+    var b = this.getValue(args[1], argTypes[1]);
+    this.setValue(a * b, args[2], argTypes[2]);
+  }
+
+  execDIV(args, argTypes) {
+    var a = this.getValue(args[0], argTypes[0]);
+    var b = this.getValue(args[1], argTypes[1]);
+    this.setValue(parseInt(a / b, 10), args[2], argTypes[2]);
+  }
+
+  execMOD(args, argTypes) {
+    var a = this.getValue(args[0], argTypes[0]);
+    var b = this.getValue(args[1], argTypes[1]);
+    this.setValue(parseInt(a % b, 10), args[2], argTypes[2]);
+  }
+
+
+  getValue(val, type) {
+    var byte;
     switch (type) {
       case "c":
-        return parseInt(val, 16);
+        byte = val;
         break;
       case "m":
         var adress = parseInt(val, 16);
-        return parseInt(memory.get(adress), 16);
+        byte = this.memory.getByte(adress);
         break;
       case "p":
-        var cell = parseInt(val, 16);
-        var adress = parseInt(memory.get(cell), 16);
-        return parseInt(memory.get(adress), 16);
+        var ref = parseInt(val, 16);
+        var adress = parseInt(this.memory.getByte(ref), 16);
+        byte = this.memory.getByte(adress);
         break;
     }
+
+    return parseInt(byte, 16);
   }
 
-  setValue(memory, val, dest, destType) {
+  setValue(val, dest, destType) {
     if (val > 255 ) {
-      val = val % 256
+      val = val % 256;
+    } else if (val < 0) {
+      val = 256 + (val % 256);
     }
+
     val = this.toHex(val);
     switch (destType) {
       case "m":
         var adress = parseInt(dest, 16);
-        memory.set(adress, val);
+        this.memory.setByte(adress, val)
         break;
       case "p":
-        var cell = parseInt(dest, 16)
-        var adress = parseInt(memory.get(cell), 16);
-        memory.set(adress, val);
+        var ref = parseInt(dest, 16)
+        var adress = parseInt(this.memory.getByte(ref), 16);
+        this.memory.setByte(adress, val);
         break;
     }
   }

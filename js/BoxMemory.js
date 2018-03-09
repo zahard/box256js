@@ -20,6 +20,32 @@ class BoxMemory {
     return this.cmdManager.validate(bytes[0], bytes[1], bytes[2],bytes[3]);
   }
 
+  getByte(index) {
+    return this.memory.get(index);
+  }
+
+  setByte(index, byte) {
+    this.memory.set(index, byte);
+    this.drawMemoryByte(index, byte);
+  }
+
+  freezeMemory() {
+    this._freezedMemory = this.memory.getCopy();
+  }
+
+  restoreMemory() {
+    if (!this._freezedMemory) return;
+    this.memory.reset(this._freezedMemory);
+    this._freezedMemory = null;
+
+    // Draw all lines
+    //var linesCount = this.memory.len / 4;
+    var linesCount = 32;
+    for (var i = 0; i < linesCount; i++) {
+      this.drawMemoryLine(i);
+    }
+  }
+
   updateMemoryLine(line, bytes) {
     // First check COMMAND byte
     var cmd = bytes[0];
@@ -63,19 +89,23 @@ class BoxMemory {
     for (let i = 0; i < 4; i++) {
       byte = this.memory.get(index + i);
       color = error ? 'red': (byte == '00' ? 'green' : 'lightgreen');
-
       if (invert) {
         color = 'black';
         bg = '#6ddd64';
       }
-
-      this.view.drawText(byte, {
-          x: this.memCellOffset.x + i * 2,
-          y: this.memCellOffset.y + line,
-        }, color, bg);
+      this.drawMemoryByte(index + i, byte, color, bg);
     }
   }
 
+  drawMemoryByte(index, value, color, bg) {
+    color = color || 'lightgreen';
+    var byteIndex = index % 4;
+    var line = ~~(index / 4);
+    this.view.drawText(value, {
+      x: this.memCellOffset.x + byteIndex * 2,
+      y: this.memCellOffset.y + line,
+    }, color, bg);
+  }
 
   reverseNumber(num) {
     var max = 256;

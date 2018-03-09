@@ -45,13 +45,15 @@ class Box256 {
       'MOD': 'aqua',
     }
 
-    this.stepDelay = 50;
+    this.stepDelay = 10;
 
     setTimeout(() => {
       this.attachListeners()
     }, 500);
 
-    this.cmdManager = new CommandManager();
+    this.screen = new ScreenRender();
+
+    this.cmdManager = new CommandManager(this.screen);
 
     this.view = new ViewRender({
       wrapper: this.wrapper,
@@ -64,47 +66,72 @@ class Box256 {
     this.view.onReady(() => {
       // Draw background default data
       this.view.drawTemplate();
+
+      this.screen.layer = this.view.layers.data;
+
       this.init();
     });
 
-    this.cmdManager.setView(this.view);
+    this.memoryBox = new BoxMemory(this.view, this.cmdManager);
 
-    this.memBox = new BoxMemory(this.view, this.cmdManager);
-
-    // Link to memory
-    this.memory = this.memBox.memory;
+    this.cmdManager.setMemory(this.memoryBox);
 
   }
 
   init() {
     this.runCursor(false);
-
     this.running = false;
   }
 
   run() {
-    this.resetCursorInterval();
-    this.runCode(0);
-    this.running = true;
+    if (!this.running) {
+      this.prepareToRun();
+    }
+    this.step(true);
   }
 
+  prepareToRun() {
+    this.resetCursorInterval();
+    this.memoryBox.freezeMemory();
 
-  step() {
+    // Reset pixels screen
+    this.screen.resetScreen();
+    this.cycles = 0;
+    this.currentStep = 0;
+    this.running = true;
+    this.drawActiveLine(this.currentStep);
+  }
+
+  step(async) {
     if (!this.running) {
-      this.resetCursorInterval();
-      this.running = true;
-      this.currentStep = 0;
-      this.drawActiveLine(this.currentStep);
+      this.prepareToRun();
     } else {
+      if (!async) {
+        clearTimeout(this.stepTimeout);
+      } else {
+        this.stepTimeout = setTimeout(() => {
+          this.step(true);
+        }, this.stepDelay);
+      }
+
+      // Deactivate current line
+      this.drawUnactiveLine(this.currentStep);
+
+      // Execute line command
       let next = this.runInstruction(this.currentStep);
-      const prev = this.currentStep;
 
-      next = next != -1 ? next : prev + 1;
+      // If programm ready
+      if (next == -1) {
+        this.onLevelCompleted();
+        return;
+      }
 
+      // Check if we have more lines to run
       if (next < this.linesCount) {
-        this.currentStep = next
-        this.drawActiveLine(this.currentStep);
-        this.drawUnactiveLine(prev);
+        // Hightlight next line
+        this.drawActiveLine(next);
+        // Update curent line index
+        this.currentStep = next;
       } else {
         this.stop();
       }
@@ -114,66 +141,46 @@ class Box256 {
   }
 
   stop() {
-    var prev = this.currentStep;
-    this.currentStep = -1;
+    if (!this.running) return;
 
-    this.drawUnactiveLine(prev);
+    // stop timeout
+    clearTimeout(this.stepTimeout);
+
+    // Deactivate current line
+    this.drawUnactiveLine(this.currentStep);
+
+    // Reset step
+    this.currentStep = 0;
+
+    // Put memory back
+    this.memoryBox.restoreMemory();
+
+    // Run cursor
+    this.runCursor(false);
 
     this.running = false;
-    this.runCursor(false);
-  }
-
-  runCode(line) {
-
-    if (line < this.linesCount) {
-      this.currentStep = line;
-
-      this.drawActiveLine(line);
-
-      const next = this.runInstruction(line);
-      if (next == -1) {
-        // Prev instruction was not found
-        this.currentStep = line + 1;
-        this.drawUnactiveLine(line);
-        this.runCode(line + 1);
-      } else {
-        // If instuction was found make a delay
-        setTimeout(() => {
-          if (!this.running) {
-            return;
-          }
-          this.currentStep = next;
-          this.drawUnactiveLine(line);
-          this.runCode(next);
-        }, this.stepDelay)
-      }
-    } else {
-      console.log('Finsih')
-      this.stop();
-    }
   }
 
   runInstruction(line) {
+    this.cycles++;
+
     var idx = line * 4;
-    var cmd = this.memory.get(idx);
+    var cmd = this.memoryBox.getByte(idx);
+    var a = this.memoryBox.getByte(idx+1);
+    var b = this.memoryBox.getByte(idx+2);
+    var c = this.memoryBox.getByte(idx+3);
 
-    // Empty command - skip to next line
-    if (cmd == '00') {
+    var jumpTo = this.cmdManager.exec(cmd, [a,b,c]);
+
+    // After each PIX instruction check if
+    // level goal is complete
+    if (this.isLevelReady(cmd)) {
       return -1;
     }
 
-    var a = this.memory.get(idx+1);
-    var b = this.memory.get(idx+2);
-    var c = this.memory.get(idx+3);
-
-    var jumpTo = this.execCommand(cmd, a, b, c);
-    // Not found cmd
-    if (jumpTo == -1) {
-      return -1;
-    }
-
-    if(!jumpTo) {
-      jumpTo = line +1;
+    // COmand doesnt make jump go next line
+    if (!jumpTo) {
+      jumpTo = line + 1;
     } else {
       var tmp = jumpTo % 4;
       if (tmp !== 0 ) {
@@ -183,17 +190,9 @@ class Box256 {
       }
     }
 
-    var lines = this.memory.flushChangedLines();
-    lines.forEach(ln => {
-      //this.drawMemoryLine(ln, false)
-    });
+
 
     return jumpTo;
-  }
-
-  execCommand(cmd, a,b,c) {
-    var memory = this.memory;
-    return this.cmdManager.exec(cmd, [a,b,c], memory);
   }
 
   getCellPosition(pos) {
@@ -207,6 +206,24 @@ class Box256 {
       x: this.cellsOffset.x + x,
       y: this.cellsOffset.y + y,
     }
+  }
+
+
+  onLevelCompleted() {
+    this.stop();
+    console.log('Level completed. It takes', this.cycles, 'cycles');
+  }
+
+  isLevelReady(cmd) {
+    var cmdNum = parseInt(cmd, 16);
+    if (cmdNum > 32 && cmdNum < 42 ) {
+      var pixels = this.screen.getPixels()
+      var level = this.getCurrentLevel();
+      if (pixels.join('') === level) {
+        return true;
+      }
+    }
+    return false;
   }
 
   getCursorCell() {
@@ -337,7 +354,7 @@ class Box256 {
       }
     }
 
-    //this.drawMemoryLine(line, false, true);
+    this.memoryBox.drawMemoryLine(line, false, true);
 
   }
 
@@ -353,7 +370,7 @@ class Box256 {
       }
     }
 
-    //this.drawMemoryLine(line, false);
+    this.memoryBox.drawMemoryLine(line, false, false);
   }
 
 
@@ -384,9 +401,9 @@ class Box256 {
       } else {
         this.putChar(pos, null);
       }
-      //if (pos != this.cursorPos) {
-        this.drawDataChar(pos);
-      //}
+
+      this.drawDataChar(pos);
+
     }
   }
 
@@ -425,7 +442,7 @@ class Box256 {
     var line = this.getByteLineIndex(byteIndex);
 
     // Put correct opcodes to memory on according line
-    this.memBox.updateMemoryLine(line, this.getLineBytes(line));
+    this.memoryBox.updateMemoryLine(line, this.getLineBytes(line));
 
   }
 
@@ -608,25 +625,32 @@ class Box256 {
       r++;
     }
 
-    this.updateMemory(~~(pos/3));
+    this.memoryBox.updateMemoryLine(lineIdx, this.getLineBytes(lineIdx));
   }
 
-  loadCode(code) {
-    const lines = code.split("\n");
-    lines.forEach((l,i) => this.loadCodeLine(l,i));
-  }
-
-  loadCodeLine(line, lineNum) {
-    if (line.length < 3) return;
-    let pos = lineNum * this.cellsInRow;
-    let p;
-    for (let i = 0; i < 12; i++) {
-      p = pos + i;
-      let char = line[i] || null;
-      this.putChar(p, char);
-      this.drawDataChar(p);
+  getCurrentLevel() {
+    if (!this.currentLevel) {
+      var l = '';
+      l += '0000000000000000';
+      l += '0000000000000000';
+      l += '0011111111111100';
+      l += '0010000000000100';
+      l += '0010000000000100';
+      l += '0010000000000100';
+      l += '0010000000000100';
+      l += '0010000000000100';
+      l += '0010000000000100';
+      l += '0010000000000100';
+      l += '0010000000000100';
+      l += '0010000000000100';
+      l += '0010000000000100';
+      l += '0011111111111100';
+      l += '0000000000000000';
+      l += '0000000000000000';
+      this.currentLevel = l;
     }
-    this.updateMemory(~~(pos/3));
+
+    return this.currentLevel;
   }
 
 }

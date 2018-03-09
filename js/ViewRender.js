@@ -253,31 +253,4 @@ class ViewRender {
     this.size = 16;
   }
 
-  drawPixel(x, y, colorIndex) {
-    var cxt = this.activeLayer;
-    cxt.save()
-    var scrOffset = {
-      y:3, x: 30
-    }
-    var size = this.size;
-    x = scrOffset.x * size + x * 16 + 1;
-    y = scrOffset.y * size + y * 16 + 1;
-    var color = this.getColor(colorIndex);
-    cxt.set('fillStyle', color);
-    cxt.fillRect(x, y, 15, 15);
-
-    cxt.restore();
-  }
-
-  getColor(index) {
-    if (index > 15) index = index % 16;
-    var pixelColors = [
-    '#222','#354367','#6c3652','#4f7f58','#965b46','#5d5751',
-    '#c2c3c7','#fbf1ea','#d74f5e','#e7a856','#fef877',
-    '#8ada73','#6baef1','#726d87','#df8ba9','#f0ceb4'
-    ];
-    return pixelColors[index];
-  }
-
-
 }

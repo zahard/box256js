@@ -4,6 +4,7 @@ var resources = [
     'Memory',
     'BoxMemory',
     'ViewRender',
+    'ScreenRender',
     'CommandManager',
     'application'
 ];
