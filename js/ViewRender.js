@@ -9,7 +9,7 @@ class ViewRender {
     this.size = obj.cellSize;
     this.lines = obj.lines;
 
-    this.bgColor = '#222';
+    this.bgColor = '#111';
 
     // Layer to put data
     this.activeLayer = null;

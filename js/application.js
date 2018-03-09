@@ -1,12 +1,13 @@
 
 class Box256 {
 
-  constructor() {
+  constructor(wrapper) {
 
     this.width = 800;
     this.height = 640;
 
-    this.wrapper = $('wrapper');
+    this.wrapper = wrapper;
+
     this.wrapper.style.width = this.width + 'px';
     this.wrapper.style.height = this.height + 'px';
 
@@ -28,6 +29,7 @@ class Box256 {
     this.chars = new Array(this.cellsInRow * this.linesCount);
     this.colorMap = new Array(this.cellsInRow * this.linesCount);
 
+    this.bgColor = '#111';
     // Create memory
     this.memory = new Memory(this.cellsInRow * this.linesCount);
 
@@ -46,22 +48,6 @@ class Box256 {
     }
 
     this.stepDelay = 50;
-
-    /*
-    this.colors = {
-      white: 0,
-      black: 1,
-      blue: 2,
-      lightblue: 3,
-      grey:3,
-      green: 4,
-      lightgreen: 5,
-      red: 6,
-      orange: 7,
-      pink: 8,
-      bordo: 9,
-      aqua: 10
-    }*/
 
     setTimeout(() => {
       this.attachListeners()
@@ -84,6 +70,8 @@ class Box256 {
     });
 
     this.cmdManager.setView(this.view);
+
+    this.memBox = new BoxMemory(this.view)
 
   }
 
@@ -249,7 +237,7 @@ class Box256 {
     if (value) {
       this.view.drawText(char, this.activeCell, 'black', '#fff');
     } else {
-      this.view.drawText(char, this.activeCell, color, '#222');
+      this.view.drawText(char, this.activeCell, color, this.bgColor);
     }
   }
 
@@ -325,7 +313,7 @@ class Box256 {
     var cell = this.getCellPosition(pos);
     var char = this.chars[pos] || '0';
     var color = this.colorMap[pos] || 'grey';
-    this.view.drawText(char, cell, color, '#222');
+    this.view.drawText(char, cell, color, this.bgColor);
   }
 
   drawActiveLine(line) {
@@ -354,7 +342,7 @@ class Box256 {
       // Fill space between columns
       if (i > 0 && i % 3 == 0) {
         const cell = this.getCellPosition(start + i);
-        this.view.drawColor({x: cell.x - 1, y: cell.y}, '#222');
+        this.view.drawColor({x: cell.x - 1, y: cell.y}, this.bgColor);
       }
     }
 
@@ -527,6 +515,7 @@ class Box256 {
   reverseNumber(num) {
     var max = 256;
     var n = parseInt(num, 16);
+    if(n == 0) return 0;
     var inv = (max - n).toString(16).toUpperCase();
 
     return inv;

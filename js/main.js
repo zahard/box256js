@@ -1,11 +1,8 @@
 var resources = [
-    'helpers',
-    'Vertaxis/Vertaxis',
-    'Vertaxis/Math',
-    'Vertaxis/Shape',
     'Layer',
     'KeyboardManager',
     'Memory',
+    'BoxMemory',
     'ViewRender',
     'CommandManager',
     'application'
