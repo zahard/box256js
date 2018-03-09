@@ -3,7 +3,7 @@ class Box256 {
 
   constructor() {
 
-    this.width = 640;
+    this.width = 800;
     this.height = 640;
 
     this.wrapper = $('wrapper');
@@ -45,7 +45,7 @@ class Box256 {
       'MOD': 'aqua',
     }
 
-    this.stepDelay = 1000;
+    this.stepDelay = 50;
 
     /*
     this.colors = {
@@ -83,6 +83,7 @@ class Box256 {
       this.init();
     });
 
+    this.cmdManager.setView(this.view);
 
   }
 
@@ -95,6 +96,7 @@ class Box256 {
   run() {
     this.resetCursorInterval();
     this.runCode(0);
+    this.running = true;
   }
 
 
@@ -133,6 +135,7 @@ class Box256 {
   }
 
   runCode(line) {
+
     if (line < this.linesCount) {
       this.currentStep = line;
 
@@ -147,6 +150,9 @@ class Box256 {
       } else {
         // If instuction was found make a delay
         setTimeout(() => {
+          if (!this.running) {
+            return;
+          }
           this.currentStep = next;
           this.drawUnactiveLine(line);
           this.runCode(next);
@@ -154,8 +160,7 @@ class Box256 {
       }
     } else {
       console.log('Finsih')
-      this.runCursor(false);
-      this.currentStep = -1;
+      this.stop();
     }
   }
 
@@ -181,11 +186,11 @@ class Box256 {
     if(!jumpTo) {
       jumpTo = line +1;
     } else {
-      var tmp  = jumpTo % 4;
+      var tmp = jumpTo % 4;
       if (tmp !== 0 ) {
         jumpTo = (~~(jumpTo/4)) + 1;
       } else {
-        jumpTo = tmp;
+        jumpTo = jumpTo/4;
       }
     }
 
@@ -282,8 +287,11 @@ class Box256 {
         break;
       case "mem":
       case "ref":
+      case "min":
         if (rowPos > 0 && rowPos % 3 == 0) {
-          this.setChar(char, type == 'ref' ? 'red':'lightblue');
+          var color = type == 'ref' ? 'red':'lightblue';
+          if (type == 'min') color = 'white';
+          this.setChar(char, color);
           valid = true;
         }
         break;
@@ -327,6 +335,11 @@ class Box256 {
       const cell = this.getCellPosition(pos);
       const char = this.chars[pos] || '0';
       this.view.drawText(char, cell, 'black', '#fff');
+
+      // Fill space between columns
+      if (i > 0 && i % 3 == 0) {
+        this.view.drawColor({x: cell.x - 1, y: cell.y}, '#fff');
+      }
     }
 
     this.drawMemoryLine(line, false, true);
@@ -336,7 +349,13 @@ class Box256 {
   drawUnactiveLine(line) {
     const start = line * this.cellsInRow;
     for (let i = 0; i < 12; i++) {
-      this.drawDataChar(start + i)
+      this.drawDataChar(start + i);
+
+      // Fill space between columns
+      if (i > 0 && i % 3 == 0) {
+        const cell = this.getCellPosition(start + i);
+        this.view.drawColor({x: cell.x - 1, y: cell.y}, '#222');
+      }
     }
 
     this.drawMemoryLine(line, false);
@@ -466,7 +485,12 @@ class Box256 {
     // Write arguments to memory
     let argIndex = cmdByteIdx + 1;
     for (let i = 1; i < 4; i++) {
-      const argVal = this.getSlotText(argIndex).substr(1);
+      let byteCode = this.getSlotText(argIndex);
+      let argVal = byteCode.substr(1);
+      if (byteCode[0] == '-') {
+        //reverse value
+        argVal = this.reverseNumber(argVal);
+      }
       this.memory.set((line*4) + i, argVal);
       argIndex++;
     }
@@ -500,6 +524,14 @@ class Box256 {
     );
   }
 
+  reverseNumber(num) {
+    var max = 256;
+    var n = parseInt(num, 16);
+    var inv = (max - n).toString(16).toUpperCase();
+
+    return inv;
+  }
+
 
   attachListeners() {
 
@@ -528,6 +560,8 @@ class Box256 {
         this.insertChar(e.key.toUpperCase(), 'text');
       } else if (e.key == "@") {
         this.insertChar('@', 'mem');
+      } else if (e.key == "-") {
+        this.insertChar('-', 'min');
       } else if (e.key == "*") {
         this.insertChar('*', 'ref');
       } else if (code > 36 && code <  41) {
@@ -638,19 +672,43 @@ class Box256 {
     this.updateMemory(~~(pos/3));
   }
 
+  loadCode(code) {
+    const lines = code.split("\n");
+    lines.forEach((l,i) => this.loadCodeLine(l,i));
+  }
+
+  loadCodeLine(line, lineNum) {
+    if (line.length < 3) return;
+    let pos = lineNum * this.cellsInRow;
+    let p;
+    for (let i = 0; i < 12; i++) {
+      p = pos + i;
+      let char = line[i] || null;
+      this.putChar(p, char);
+      this.drawDataChar(p);
+    }
+    this.updateMemory(~~(pos/3));
+  }
+
 }
 
 var test = [
-'01FF1F00',
-'01EE1E00',
-'01DD1D00',
+'01226000',
+'01304000',
+'24600100',
+'37604060',
+'31610161',
+'420B6108',
+'01006100',
+'31400140',
+'1108',
 
-'01CC2300',
-'01BB2200',
-'01AA2100',
+'00000000',
+'00000000',
+'00000000',
 
+'0110FFF0',
 ]
-
 
 var CurosorDir = {
   left: 0,

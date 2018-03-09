@@ -21,6 +21,7 @@ class CommandManager {
       'JMP_m':'12',
       'JMP_p':'13',
 
+
       'PIX_c_c': '21',
       'PIX_c_m': '22',
       'PIX_c_p': '23',
@@ -50,6 +51,10 @@ class CommandManager {
       'ADD_p_p_c': '3F',
       'ADD_p_p_m': '40',
       'ADD_p_p_p': '41',
+
+      'JGR_c_m_c':'42',
+      'JGR_m_c_c':'43'
+
     }
 
     this.commandMap = {};
@@ -57,6 +62,10 @@ class CommandManager {
       this.commandMap[this.commandList[name]] = name;
     }
 
+  }
+
+  setView(view) {
+    this.view = view;
   }
 
   validate(cmd, A, B, C) {
@@ -99,6 +108,11 @@ class CommandManager {
     return this.commandList[cmd]
   }
 
+  validateJGR(a,b,c) {
+    var cmd = 'JGR_' + this.getArgTypes(a,b,c);
+    return this.commandList[cmd]
+  }
+
   getArgTypes() {
     var args = Array.prototype.slice.call(arguments);
     return args.map(arg => {
@@ -120,15 +134,57 @@ class CommandManager {
     var argTypes = cmd.substr(4).split('_');
 
     switch (cmdName) {
+      case "ADD":
+        this.execADD(memory, args, argTypes);
+        break;
       case "MOV":
         this.execMOV(memory, args, argTypes);
         break;
+      case "JMP":
+        return this.execJMP(memory, args, argTypes);
+        break;
+      case "JGR":
+        return this.execJGR(memory, args, argTypes);
+        break;
+      case "PIX":
+        return this.execPIX(memory, args, argTypes);
+        break;
     }
+  }
+
+  execADD(memory, args, argTypes) {
+    var a = this.getValue(memory, args[0], argTypes[0]);
+    var b = this.getValue(memory, args[1], argTypes[1]);
+    var c = this.getValue(memory, args[2], argTypes[2]);
+    this.setValue(memory, b + c, args[0], argTypes[0]);
   }
 
   execMOV(memory, args, argTypes) {
     var a = this.getValue(memory, args[0], argTypes[0]);
     this.setValue(memory, a, args[1], argTypes[1]);
+  }
+
+  execJMP(memory, args, argTypes) {
+    var jmpTo = this.getValue(memory, args[0], argTypes[0]);
+    return jmpTo;
+  }
+
+
+  execJGR(memory, args, argTypes) {
+    var a = this.getValue(memory, args[0], argTypes[0]);
+    var b = this.getValue(memory, args[1], argTypes[1]);
+    if (a > b) {
+      var jmpTo = this.getValue(memory, args[2], argTypes[2]);
+      return jmpTo;
+    }
+  }
+
+  execPIX(memory, args, argTypes) {
+    var a = this.getValue(memory, args[0], argTypes[0]);
+    var b = this.getValue(memory, args[1], argTypes[1]);
+    var y = ~~(a / 16);
+    var x =a % 16;
+    this.view.drawPixel(x,y, b);
   }
 
   getValue(memory, val, type) {
@@ -149,6 +205,9 @@ class CommandManager {
   }
 
   setValue(memory, val, dest, destType) {
+    if (val > 255 ) {
+      val = val % 256
+    }
     val = this.toHex(val);
     switch (destType) {
       case "m":

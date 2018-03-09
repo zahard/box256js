@@ -31,20 +31,24 @@ class ViewRender {
   }
 
   onReady(fn) {
-    console.log('Attach')
     this._onReadCallback = fn;
   }
 
   // Fill background
   drawBackground() {
-    this.layers.back.fillAll(this.bgColor);
+    this.activeLayer = this.layers.back;
+    this.activeLayer.fillAll(this.bgColor);
+
+    this.drawScreen();
   }
 
   loadImages() {
     this.fontImage = new Image();
     this.fontImage.onload = () => {
-      this.drawBackground();
+
       this.compileFonts();
+
+      this.drawBackground();
 
       this.activeLayer = this.layers.data;
 
@@ -176,6 +180,15 @@ class ViewRender {
     );
   }
 
+  drawColor(coords, color) {
+    var size = this.size;
+    var x = coords.x * size;
+    var y = coords.y * size;
+    const cxt = this.activeLayer;
+    // Clear
+    cxt.set('fillStyle', color);
+    cxt.fillRect(x, y, size, size);
+  }
 
   drawSymbol(index, coords, color, bgcolor) {
     var size = this.size;
@@ -202,6 +215,69 @@ class ViewRender {
 
   }
 
+
+  drawScreen() {
+    var cxt = this.activeLayer;
+    cxt.save()
+    var scrOffset = {
+      y:3, x: 30
+    }
+    var size = this.size;
+    var x = scrOffset.x * size;
+    var y = scrOffset.y * size;
+
+    var cell = 16;
+    var count = 16;
+    var num;
+    cxt.set('fillStyle', '#444');
+
+    this.size = 8;
+    this.font = this.fontColors['white'];
+    for (var i = 0; i <= count; i++) {
+      cxt.fillRect(x + (i * cell), y, 1, 256);
+      cxt.fillRect(x, y + (i * cell) , 256, 1);
+    }
+
+    var a1, a0;
+    var xOff = x - 10;
+    var yOff = y - 10;
+    for (var i = 0; i < count; i++) {
+      num = i.toString(16).toUpperCase();
+
+
+      this.drawChar(num, xOff, y + 4 + i * 16);
+      this.drawChar(num, x + 4 + i * 16, yOff);
+
+    }
+    cxt.restore();
+    this.size = 16;
+  }
+
+  drawPixel(x, y, colorIndex) {
+    var cxt = this.activeLayer;
+    cxt.save()
+    var scrOffset = {
+      y:3, x: 30
+    }
+    var size = this.size;
+    x = scrOffset.x * size + x * 16 + 1;
+    y = scrOffset.y * size + y * 16 + 1;
+    var color = this.getColor(colorIndex);
+    cxt.set('fillStyle', color);
+    cxt.fillRect(x, y, 15, 15);
+
+    cxt.restore();
+  }
+
+  getColor(index) {
+    if (index > 15) index = index % 16;
+    var pixelColors = [
+    '#222','#354367','#6c3652','#4f7f58','#965b46','#5d5751',
+    '#c2c3c7','#fbf1ea','#d74f5e','#e7a856','#fef877',
+    '#8ada73','#6baef1','#726d87','#df8ba9','#f0ceb4'
+    ];
+    return pixelColors[index];
+  }
 
 
 }
