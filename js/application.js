@@ -30,10 +30,8 @@ class Box256 {
     this.colorMap = new Array(this.cellsInRow * this.linesCount);
 
     this.bgColor = '#111';
-    // Create memory
-    this.memory = new Memory(this.cellsInRow * this.linesCount);
 
-    this.commands = {
+    this.commandColors = {
       'MOV': 'green',
       'PIX': 'pink',
       'JMP': 'bordo',
@@ -71,7 +69,10 @@ class Box256 {
 
     this.cmdManager.setView(this.view);
 
-    this.memBox = new BoxMemory(this.view)
+    this.memBox = new BoxMemory(this.view, this.cmdManager);
+
+    // Link to memory
+    this.memory = this.memBox.memory;
 
   }
 
@@ -184,7 +185,7 @@ class Box256 {
 
     var lines = this.memory.flushChangedLines();
     lines.forEach(ln => {
-      this.drawMemoryLine(ln, false)
+      //this.drawMemoryLine(ln, false)
     });
 
     return jumpTo;
@@ -289,6 +290,12 @@ class Box256 {
           valid = true;
         }
         break;
+      case "space":
+        if (rowPos % 3 == 0) {
+          // Just move cursor right from cmd byte
+          valid = true;
+        }
+        break;
     }
 
     if (valid) {
@@ -330,7 +337,7 @@ class Box256 {
       }
     }
 
-    this.drawMemoryLine(line, false, true);
+    //this.drawMemoryLine(line, false, true);
 
   }
 
@@ -346,7 +353,7 @@ class Box256 {
       }
     }
 
-    this.drawMemoryLine(line, false);
+    //this.drawMemoryLine(line, false);
   }
 
 
@@ -361,6 +368,12 @@ class Box256 {
     var s = byteIndex * 3;
     return this.chars.slice(s, s+3);
   }
+
+  getLineChars(line) {
+    var s = line * this.cellsInRow;
+    return this.chars.slice(s, s + this.cellsInRow);
+  }
+
 
   setByteChars(byteIndex, word, color) {
     var s = byteIndex * 3;
@@ -392,8 +405,8 @@ class Box256 {
       }
 
       // If valid command exists
-      if (this.commands[word]) {
-        this.setByteChars(byteIndex, word, this.commands[word])
+      if (this.commandColors[word]) {
+        this.setByteChars(byteIndex, word, this.commandColors[word])
       } else {
         // If start from digit or empty- lets update values
         if ( /^[0-9A-F]{3}$/.test(word) ) {
@@ -409,8 +422,29 @@ class Box256 {
       }
     }
 
-    this.updateMemory(byteIndex);
+    var line = this.getByteLineIndex(byteIndex);
 
+    // Put correct opcodes to memory on according line
+    this.memBox.updateMemoryLine(line, this.getLineBytes(line));
+
+  }
+
+  getLineBytes(line) {
+    var bytes = [];
+    var byte = '';
+    var chars = this.getLineChars(line);
+    for (var i = 0; i < chars.length; i++) {
+      byte += (chars[i] ? chars[i] : '0');
+      if ((i + 1 )% 3 == 0) {
+        bytes.push(byte);
+        byte = '';
+      }
+    }
+    return bytes;
+  }
+
+  getByteLineIndex(byteIndex) {
+    return ~~(byteIndex / 4);
   }
 
 
@@ -433,92 +467,6 @@ class Box256 {
         this.drawDataChar(ctrlCharPos + i);
       }
     }
-  }
-
-  getSlotText(index) {
-    var s = index * 3;
-    var chars = this.chars.slice(s, s+3);
-    var word = '';
-    for (var i = 0; i < 3; i++) {
-      word += chars[i] ? chars[i] : '0';
-    }
-    return word;
-  }
-
-  updateMemory(byteIndex) {
-    var line = ~~(byteIndex / 4);
-    var cmdByteIdx = line * 4;
-    var cmdNum = '00';
-    var error = true;
-
-    // First check COMMAND byte
-    var cmd = this.getSlotText(cmdByteIdx);
-
-    // If command exists - validate it
-    if (this.commands[cmd]) {
-      let res = this.validateCommand(cmd, cmdByteIdx);
-      if (res) {
-        cmdNum = res;
-        error = false;
-      }
-    } else if ( /^.+[0-9A-F]{2}$/.test(cmd) ) {
-        // If valid number inserted
-        cmdNum = cmd.substr(1); // take last 2 chars
-        error = false;
-    }
-
-    // Write command to memory
-    this.memory.set(line * 4, cmdNum);
-
-    // Write arguments to memory
-    let argIndex = cmdByteIdx + 1;
-    for (let i = 1; i < 4; i++) {
-      let byteCode = this.getSlotText(argIndex);
-      let argVal = byteCode.substr(1);
-      if (byteCode[0] == '-') {
-        //reverse value
-        argVal = this.reverseNumber(argVal);
-      }
-      this.memory.set((line*4) + i, argVal);
-      argIndex++;
-    }
-
-    this.drawMemoryLine(line, error);
-  }
-
-  drawMemoryLine(line, error, invert) {
-    const index = line * 4;
-    let value, color, bg;
-    for (let i=0; i < 4; i++) {
-      value = this.memory.get(index+i);
-      color = error ? 'red': (value == '00' ? 'green' : 'lightgreen');
-
-      if (line == this.currentStep || invert) {
-        color = 'black';
-        bg = '#6ddd64';
-      }
-      this.view.drawText(value, {
-          x: this.memCellOffset.x + i * 2,
-          y: this.memCellOffset.y + line,
-        }, color, bg);
-    }
-  }
-
-  validateCommand(cmd, idx) {
-    return this.cmdManager.validate(cmd,
-      this.getSlotText(idx + 1),
-      this.getSlotText(idx + 2),
-      this.getSlotText(idx + 3)
-    );
-  }
-
-  reverseNumber(num) {
-    var max = 256;
-    var n = parseInt(num, 16);
-    if(n == 0) return 0;
-    var inv = (max - n).toString(16).toUpperCase();
-
-    return inv;
   }
 
 
@@ -553,6 +501,8 @@ class Box256 {
         this.insertChar('-', 'min');
       } else if (e.key == "*") {
         this.insertChar('*', 'ref');
+      } else if (code == 32) {
+        this.insertChar('', 'space');
       } else if (code > 36 && code <  41) {
         this.moveCursor(code - 37);
       }
@@ -613,7 +563,7 @@ class Box256 {
     if (command) {
       var cmdName = command.substr(0,3);
       types = command.substr(4).split('_');
-      color = this.commands[cmdName];
+      color = this.commandColors[cmdName];
 
       // Draw command
       for (var i = 0; i < 3; i++) {

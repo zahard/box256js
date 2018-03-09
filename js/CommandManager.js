@@ -3,6 +3,20 @@ class CommandManager {
 
   constructor() {
 
+    this.commands = {
+      'MOV': 'green',
+      'PIX': 'pink',
+      'JMP': 'bordo',
+      'JNE': 'orange',
+      'JEQ': 'orange',
+      'JGR': 'orange',
+      'ADD': 'aqua',
+      'SUB': 'aqua',
+      'MUL': 'aqua',
+      'DIV': 'aqua',
+      'MOD': 'aqua',
+    }
+
     /*
       c, m, p - types of function arguments
       c_m -> contant to memory
@@ -62,6 +76,10 @@ class CommandManager {
       this.commandMap[this.commandList[name]] = name;
     }
 
+  }
+
+  commandExists(cmd) {
+    return (typeof this.commands[cmd] !== 'undefined');
   }
 
   setView(view) {
