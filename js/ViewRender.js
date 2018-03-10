@@ -224,8 +224,6 @@ class ViewRender {
     var w = width * size;
     var h = height *size;
 
-    console.log(height, direction)
-
     cxt.drawImage(cxt.cnv,
       x, y, w, h - (direction * size),
       x, y + direction * size, w, h - (direction * size));

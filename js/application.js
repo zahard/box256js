@@ -315,7 +315,7 @@ class Box256 {
       var line = ~~(this.cursorPos/this.cellsInRow);
       this.activeSelection.push(line);
       this.moveCursor(dir);
-      this.drawActiveLine(line);
+      this.drawActiveCharLine(line);
     } else {
 
       if (this.activeSelection.length == this.linesCount) {
@@ -330,22 +330,22 @@ class Box256 {
         if (this.activeSelection[0] == nextLine) {
           this.activeSelection.unshift(line);
           this.moveCursor(dir);
-          this.drawActiveLine(line);
+          this.drawActiveCharLine(line);
         } else {
           this.activeSelection.pop();
           this.moveCursor(dir);
-          this.drawUnactiveLine(prevLine);
+          this.drawUnactiveCharLine(prevLine);
         }
       } else {
         // down
         if (this.activeSelection[this.activeSelection.length-1] == prevLine) {
           this.activeSelection.push(line);
           this.moveCursor(dir);
-          this.drawActiveLine(line);
+          this.drawActiveCharLine(line);
         } else {
           this.activeSelection.unshift();
           this.moveCursor(dir);
-          this.drawUnactiveLine(nextLine);
+          this.drawUnactiveCharLine(nextLine);
         }
       }
 
@@ -353,7 +353,9 @@ class Box256 {
   }
 
   resetSelection() {
-    this.drawUnactiveLines(this.activeSelection);
+    this.activeSelection.forEach(l => {
+      this.drawUnactiveCharLine(l);
+    });
     this.activeSelection = [];
   }
 
@@ -401,8 +403,10 @@ class Box256 {
     var newLineArgs = new Array(this.cellsInRow).fill('0');
     newLineArgs.unshift(pos, 0);
     Array.prototype.splice.apply(this.chars, newLineArgs);
+
     // Trim array
     this.chars.splice(this.charsArraySize);
+
 
     // PUsh new line colors
     var newColorsArgs = new Array(this.cellsInRow).fill('grey');
@@ -417,9 +421,8 @@ class Box256 {
 
     this.view.moveLines(this.getCellPosition(pos), this.linesCount - nextLine, 24, 1);
 
-
     // Draw new line
-    this.drawUnactiveLine(nextLine)
+    this.drawUnactiveCharLine(nextLine)
 
     // Put cursor on new line
     this.moveCursorToPos(pos);
@@ -455,7 +458,7 @@ class Box256 {
 
 
     // Draw new line at the end
-    this.drawUnactiveLine(this.linesCount - 1)
+    this.drawUnactiveCharLine(this.linesCount - 1)
 
     // update cursor
     this.moveCursorToPos(pos);
@@ -531,11 +534,19 @@ class Box256 {
 
   drawActiveLines(threads) {
     threads.forEach(line => {
-      this.drawActiveLine(line);
+      this.memoryBox.drawMemoryLine(line, false, true);
+      this.drawActiveCharLine(line);
     });
   }
 
-  drawActiveLine(line) {
+  drawUnactiveLines(threads) {
+    threads.forEach(line => {
+      this.drawUnactiveCharLine(line);
+      this.memoryBox.drawMemoryLine(line, false, false);
+    });
+  }
+
+  drawActiveCharLine(line) {
     const start = line * this.cellsInRow;
     for (let i = 0; i < 12; i++) {
       const pos = start + i;
@@ -548,30 +559,18 @@ class Box256 {
         this.view.drawColor({x: cell.x - 1, y: cell.y}, '#fff');
       }
     }
-
-    this.memoryBox.drawMemoryLine(line, false, true);
-
   }
 
-  drawUnactiveLines(threads) {
-    threads.forEach(line => {
-      this.drawUnactiveLine(line);
-    });
-  }
-
-  drawUnactiveLine(line) {
+  drawUnactiveCharLine(line) {
     const start = line * this.cellsInRow;
     for (let i = 0; i < 12; i++) {
       this.drawDataChar(start + i);
-
       // Fill space between columns
       if (i > 0 && i % 3 == 0) {
         const cell = this.getCellPosition(start + i);
         this.view.drawColor({x: cell.x - 1, y: cell.y}, this.bgColor);
       }
     }
-
-    this.memoryBox.drawMemoryLine(line, false, false);
   }
 
 
@@ -704,7 +703,7 @@ class Box256 {
       // 86
 
       if (this.activeSelection.length) {
-        if (code != 16 && code != 16 && !(e.shiftKey && (code == 38 || code == 40))) {
+        if (code != 16 && code != 17 && !(e.shiftKey && (code == 38 || code == 40))) {
           this.resetSelection();
         }
       }
@@ -805,65 +804,113 @@ class Box256 {
 
   loadProgramm(lines) {
     lines.forEach((line, i) => {
-      this.loadLine(line, i);
+      this.putLineChars(line, i);
     });
   }
 
-  loadLine(line, lineIdx) {
+  putLineChars(line, lineIdx) {
     var pos = lineIdx * this.cellsInRow;
-    var color;
-    var types = [];
-    var cmd = line[0] + line[1];
-    var command = this.cmdManager.commandMap[cmd];
-    if (command) {
-      var cmdName = command.substr(0,3);
-      types = command.substr(4).split('_');
-      color = this.commandColors[cmdName];
 
-      // Draw command
-      for (var i = 0; i < 3; i++) {
-        this.putChar(pos + i, cmdName[i], color);
-        this.drawDataChar(pos + i);
-      }
-    } else {
-      this.putChar(pos + 1, line[0], color);
-      this.putChar(pos + 2, line[1], color);
-      this.drawDataChar(pos + 1);
-      this.drawDataChar(pos + 2);
+    // Put chars in line
+    for (var i = 0; i < this.cellsInRow; i++) {
+      var char = line[i] || '0';
+      this.putChar(pos + i, char);
     }
 
+    this.updateLineColors(lineIdx);
 
-    var num, color, p;
-
-    var diff = 2;
-    var r = 0;
-    for (var i = 2; i < 8; i += 2) {
-      p = pos + diff;
-
-      color = 'white';
-
-      this.putChar(p + i, line[i], color);
-      this.putChar(p + i +1, line[i+1], color);
-
-      this.drawDataChar(p +i);
-      this.drawDataChar(p +i +1);
-
-      var type = types[r];
-      if (type) {
-        if (type == 'm') {
-          this.putChar(p + i - 1, '@', 'lightblue');
-          this.drawDataChar(p + i - 1);
-        } else if (type == 'p') {
-          this.putChar(p + i - 1, '*', 'red');
-          this.drawDataChar(p + i - 1);
-        }
-      }
-
-      diff++;
-      r++;
-    }
+    this.drawCharsLine(lineIdx);
 
     this.memoryBox.updateMemoryLine(lineIdx, this.getLineBytes(lineIdx));
+  }
+
+  updateLineColors(lineIdx) {
+    var byteIndex = lineIdx * 4;
+    var requiredArgs = this.updateCommandByteColor(byteIndex);
+    var required;
+    for (var i = 1; i <= 3; i++) {
+      required = i <= requiredArgs;
+      this.updateByteColor(byteIndex + i, required);
+    }
+  }
+
+  updateCommandByteColor(byteIndex) {
+    var byte = this.getByte(byteIndex);
+    // If valid command exists
+    if (this.commandColors[byte]) {
+      this.setByteColor(byteIndex, this.commandColors[byte]);
+      return this.cmdManager.getCommandRequiredArgs(byte);
+    } else {
+      // If commmand byte is constant value
+      if ( /^[0-9A-F]{3}$/.test(byte) ) {
+        this.updateByteColor(byteIndex, 0);
+      } else {
+        // Disable invalid command
+        this.setByteColor(byteIndex, 'grey');
+      }
+    }
+    return 0;
+  }
+
+  // Numeric byte
+  updateByteColor(byteIndex, required) {
+    var byte = this.getByte(byteIndex);
+
+    // Empty byte
+    if (byte === '000' && !required) {
+      this.setByteColor(byteIndex, 'grey');
+    } else {
+      var colors = [
+        this.getNumModifierColor(byte[0]),
+        'white',
+        'white'];
+
+      this.setByteColors(byteIndex, colors);
+    }
+  }
+
+  setByteColor(byteIndex, color) {
+    var s = byteIndex * 3;
+    for (i = 0; i < 3; i++) {
+      this.colorMap[s + i] = color;
+    }
+  }
+
+  setByteColors(byteIndex, colors) {
+    var s = byteIndex * 3;
+    for (i = 0; i < 3; i++) {
+      this.colorMap[s + i] = colors[i];
+    }
+  }
+
+  getByte(byteIndex) {
+    var chars = this.getByteChars(byteIndex);
+    var byte = '';
+    for (var i = 0; i < chars.length; i++) {
+      byte += (chars[i] ? chars[i] : '0');
+    }
+    return byte;
+  }
+
+
+  getNumModifierColor(modifier) {
+    var color = 'grey';
+    switch (modifier) {
+      case "@":
+        color = 'lightblue'; break;
+      case "*":
+        color = 'red'; break;
+      case "-":
+        color = 'white'; break;
+    }
+    return color;
+  }
+
+  drawCharsLine(lineIdx) {
+    var start = lineIdx * this.cellsInRow;
+    for (var i = 0; i < this.cellsInRow; i++) {
+      this.drawDataChar(start + i);
+    }
   }
 
   getCurrentLevel() {
@@ -894,22 +941,19 @@ class Box256 {
 }
 
 var test = [
-'01226000',
-'01304000',
-'24600100',
-'37604060',
-'31610161',
-'420B6108',
-'01006100',
-'31400140',
-'1108',
-
-'00000000',
-'00000000',
-'00000000',
-
-'0110FFF0',
+'MOV020@20',
+'ADD001@20@20',
 ]
+var test2 = [
+'MOV020@20',
+'ADD001@20@20',
+'PIX@20008',
+'ADD005@20*20',
+'PIX@20009',
+'9ER001002@20',
+'0A9001002@20',
+'PIX@20000',
+];
 
 var CurosorDir = {
   left: 0,

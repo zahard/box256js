@@ -12,12 +12,18 @@ body,html , div,canvas {
     padding: 0;
 }
 
-button {
+.button {
   margin-right: 15px;
   height: 30px;
   font-size: 16px;
   line-height: 30px;
   padding: 0 10px;
+  cursor: pointer;
+  font-family: Arial;
+  background: #ccc;
+  display: inline-block;
+  border: 1px solid #333;
+  border-radius: 2px;
 }
 
 input {

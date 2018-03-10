@@ -112,6 +112,10 @@ class CommandManager {
     }
   }
 
+  getCommandRequiredArgs(cmd) {
+    return this.commands[cmd].length;
+  }
+
   commandExists(cmd) {
     return (typeof this.commands[cmd] !== 'undefined');
   }
