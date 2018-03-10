@@ -18,7 +18,39 @@ class CommandManager {
       'MUL': 'rrw',
       'DIV': 'rrw',
       'MOD': 'rrw',
+      'THR': 'r',
+      'FLP': 'ww'
     };
+
+    this.commandsSorted = [
+      'MOV',
+      'ADD',
+      'SUB',
+      'JEQ',
+      'MUL',
+      'DIV',
+      'JMP',
+      'JGR',
+      'PIX',
+      'FLP',
+      'THR',
+      'MOD',
+      'JNE',
+    ]
+
+    this.isCommutative = {
+      'MOV': false,
+      'PIX': false,
+      'JMP': false,
+      'JNE': true,
+      'JEQ': true,
+      'JGR': false,
+      'ADD': true,
+      'SUB': false,
+      'MUL': true,
+      'DIV': false,
+      'MOD': false,
+    }
 
     this.generateOpCodes();
   }
@@ -27,7 +59,8 @@ class CommandManager {
     var opCodes = {};
     var args;
     var commandCode = 0;
-    for (var cmd in this.commands) {
+    for (var cId = 0; cId < this.commandsSorted.length; cId++) {
+      var cmd = this.commandsSorted[cId];
       args = this.commands[cmd];
 
       var types = [];
@@ -138,6 +171,13 @@ class CommandManager {
     this.setValue(a, args[1], argTypes[1]);
   }
 
+  execFLP(args, argTypes) {
+    var a = this.getValue(args[0], argTypes[0]);
+    var b = this.getValue(args[1], argTypes[1]);
+    this.setValue(a, args[1], argTypes[1]);
+    this.setValue(b, args[0], argTypes[0]);
+  }
+
   execPIX(args, argTypes) {
     var a = this.getValue(args[0], argTypes[0]);
     var b = this.getValue(args[1], argTypes[1]);
@@ -150,6 +190,11 @@ class CommandManager {
   execJMP(args, argTypes) {
     var jmpTo = this.getValue(args[0], argTypes[0]);
     return jmpTo;
+  }
+
+  execTHR(args, argTypes) {
+    var jmpTo = this.getValue(args[0], argTypes[0]);
+    return -jmpTo;
   }
 
   execJGR(args, argTypes) {

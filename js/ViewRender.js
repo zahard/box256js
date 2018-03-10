@@ -74,6 +74,7 @@ class ViewRender {
       pink: this.copyFont('#ed85aa'),
       bordo: this.copyFont('#743253'), // jmp
       aqua: this.copyFont('#807999'), // add
+      yellow: this.copyFont('#f6f073'), //
 
     };
   }
@@ -119,6 +120,8 @@ class ViewRender {
 
     this._text(lines.join("\n"), 1, y, 'blue');
 
+    this.activeLayer = this.layers.data;
+
     var nulls = []
     for (var i=0;i<this.lines;i++) {
       nulls.push('000 000 000 000')
@@ -130,8 +133,6 @@ class ViewRender {
       memory.push('00000000')
     }
     this._text(memory.join("\n"), 20 , y, 'green');
-
-    this.activeLayer = this.layers.data;
 
   }
 
@@ -215,6 +216,20 @@ class ViewRender {
 
   }
 
+  moveLines(coords, height, width, direction, cut) {
+    var cxt = this.activeLayer;
+    var size = this.size;
+    var x = coords.x * size;
+    var y = coords.y * size;
+    var w = width * size;
+    var h = height *size;
+
+    console.log(height, direction)
+
+    cxt.drawImage(cxt.cnv,
+      x, y, w, h - (direction * size),
+      x, y + direction * size, w, h - (direction * size));
+  }
 
   drawScreen() {
     var cxt = this.activeLayer;

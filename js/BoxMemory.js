@@ -14,6 +14,10 @@ class BoxMemory {
     // 256 bytes memory
     this.memory = new Memory(256);
 
+    this.readLock = false;
+
+    this.lockedValues = {};
+
   }
 
   validateCommand(bytes) {
@@ -21,12 +25,31 @@ class BoxMemory {
   }
 
   getByte(index) {
+    if (this.readLock && this.lockedValues[index]) {
+      return this.lockedValues[index];
+    }
     return this.memory.get(index);
   }
 
   setByte(index, byte) {
+    if (this.readLock && !this.lockedValues[index]) {
+      // Save untouched value for assesing with another threads
+      // save it only first time since after this value changed
+      this.lockedValues[index] = this.memory.get(index);
+    }
+
     this.memory.set(index, byte);
+
     this.drawMemoryByte(index, byte);
+  }
+
+  setReadLock() {
+    this.readLock = true;
+  }
+
+  releaseReadLock() {
+    this.lockedValues = {};
+    this.readLock = false;
   }
 
   freezeMemory() {
@@ -114,6 +137,24 @@ class BoxMemory {
     var inv = (max - n).toString(16).toUpperCase();
 
     return inv;
+  }
+
+  // Insert new memory line
+  insertMemoryLine(line, count) {
+    var pos = line * 4;
+    var newLineArgs = new Array(4).fill('00');
+    newLineArgs.unshift(pos, 0);
+    Array.prototype.splice.apply(this.memory._memory, newLineArgs);
+    // Trim array
+    this.memory._memory.splice(256);
+  }
+
+  deleteMemoryLine(line) {
+    var pos = line * 4;
+    this.memory._memory.splice(pos, 4);
+    // PUsh new line chars
+    var newLine = new Array(4).fill('00');
+    Array.prototype.push.apply(this.memory._memory, newLine);
   }
 
 }
