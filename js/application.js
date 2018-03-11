@@ -50,13 +50,19 @@ class Box256 {
       'FLP': 'green',
     }
 
-    this.stepDelay = 20;
+    this.stepDelay = 25;
 
     setTimeout(() => {
       this.attachListeners()
     }, 500);
 
-    this.screen = new ScreenRender();
+    this.targetScreen = new ScreenRender({
+      y: 19 * 16, x: 30 * 16
+    });
+
+    this.screen = new ScreenRender({
+      y: 3 * 16, x: 30 * 16
+    });
 
     this.cmdManager = new CommandManager(this.screen);
 
@@ -72,7 +78,8 @@ class Box256 {
       // Draw background default data
       this.view.drawTemplate();
 
-      this.screen.layer = this.view.layers.data;
+      this.screen.layer = this.view.layers.back;
+      this.targetScreen.layer = this.view.layers.back;
 
       this.init();
     });
@@ -86,6 +93,7 @@ class Box256 {
   init() {
     this.runCursor(false);
     this.running = false;
+    this.loadFirstLevel()
   }
 
   run() {
@@ -207,23 +215,12 @@ class Box256 {
     var b = this.memoryBox.getByte(idx+2);
     var c = this.memoryBox.getByte(idx+3);
 
-    var jumpTo = this.cmdManager.exec(cmd, [a,b,c]);
+    var results = this.cmdManager.exec(cmd, [a,b,c]);
 
-    if (jumpTo < 0) {
-      var thread = -jumpTo;
-      var tmp = thread % 4;
-      if (tmp !== 0 ) {
-        thread = (~~(thread/4)) + 1;
-      } else {
-        thread = thread/4;
-      }
+    console.log(results)
 
-      // Created new thread from line
-      this.createdThread = thread;
-
-      // Continue current thread
-      jumpTo = 0;
-    }
+    // By default run next line
+    var nextLine = line + 1;
 
     // After each PIX instruction check if
     // level goal is complete
@@ -231,19 +228,42 @@ class Box256 {
       return -1;
     }
 
-    // COmand doesnt make jump go next line
-    if (!jumpTo) {
-      jumpTo = line + 1;
-    } else {
-      var tmp = jumpTo % 4;
-      if (tmp !== 0 ) {
-        jumpTo = (~~(jumpTo/4)) + 1;
-      } else {
-        jumpTo = jumpTo/4;
+    // If no additional action required - continue
+    if (!results) {
+      return nextLine;
+    }
+
+    if (results.createdThread) {
+      var thread = this.getNextInstuctionByByte(results.createdThread)
+      // Created new thread from line
+      this.createdThread = thread;
+    }
+
+    // If command change execution line
+    if (results.jumpTo) {
+      nextLine = this.getNextInstuctionByByte(results.jumpTo);
+    // If need to jump relatively
+    } else if (results.jumpOffset) {
+      nextLine = line + results.jumpOffset;
+      if (nextLine > this.linesCount) {
+        nextLine = nextLine % this.linesCount;
+      } else if(nextLine < 0) {
+        nextLine = this.linesCount - nextLine;
       }
     }
 
-    return jumpTo;
+    return nextLine;
+  }
+
+  getNextInstuctionByByte(byteIndex) {
+    var tmp = byteIndex % 4;
+    var line;
+    if (tmp !== 0 ) {
+      line = (~~(byteIndex/4)) + 1;
+    } else {
+      line = byteIndex/4;
+    }
+    return line;
   }
 
   getCellPosition(pos) {
@@ -266,14 +286,15 @@ class Box256 {
   }
 
   isLevelReady(cmd) {
-    var cmdNum = parseInt(cmd, 16);
-    if (cmdNum > 32 && cmdNum < 42 ) {
+    var cmdName = this.cmdManager.getCommandName(cmd);
+    if (cmdName == 'PIX') {
       var pixels = this.screen.getPixels()
       var level = this.getCurrentLevel();
       if (pixels.join('') === level) {
         return true;
       }
     }
+
     return false;
   }
 
@@ -358,6 +379,23 @@ class Box256 {
     });
     this.activeSelection = [];
   }
+
+
+  copySelection() {
+    this.clipboard = this.activeSelection.map(l => {
+      return this.getLineChars(l);
+    });
+    this.resetSelection();
+  }
+
+  pasteSelection() {
+    if (!this.clipboard.length) return;
+    var line = ~~(this.cursorPos/this.cellsInRow);
+    for (var i =0; i< this.clipboard.length;i++) {
+      this.putLineChars(this.clipboard[i], line + i);
+    }
+  }
+
 
   removeChar() {
     this.setChar(null);
@@ -454,7 +492,8 @@ class Box256 {
     this.memoryBox.deleteMemoryLine(line);
 
     var nextLine = line + 1;
-    this.view.moveLines(this.getCellPosition(nextLine * this.cellsInRow), this.linesCount - nextLine, 24, -1);
+    var cell = this.getCellPosition(nextLine * this.cellsInRow);
+    this.view.moveLines(cell, this.linesCount - nextLine, 24, -1);
 
 
     // Draw new line at the end
@@ -689,21 +728,26 @@ class Box256 {
 
   attachListeners() {
 
-    window.addEventListener('keydown',function(e) {
-
-
-    }.bind(this))
 
     window.addEventListener('keydown',function(e) {
       const code = e.keyCode;
 
-
-      // 17 67
-
-      // 86
+      if (code == 86 && (e.ctrlKey || e.metaKey) ) {
+        this.pasteSelection();
+        return;
+      }
 
       if (this.activeSelection.length) {
-        if (code != 16 && code != 17 && !(e.shiftKey && (code == 38 || code == 40))) {
+        if (code == 67 && (e.ctrlKey || e.metaKey) ) {
+          this.copySelection();
+          return;
+        }
+
+        if (code == 91 || e.key == "Meta" ) {
+          return;
+        }
+
+        if (code != 16  && !(e.shiftKey && (code == 38 || code == 40))) {
           this.resetSelection();
         }
       }
@@ -913,6 +957,36 @@ class Box256 {
     }
   }
 
+
+  loadFirstLevel() {
+    this.drawLevel();
+    this.loadProgramm([
+      'MOV022@40',
+      'MOV030@50',
+      'PIX@40001',
+      'ADD@40*50@40',
+      'ADD@41001@41',
+      'JGR00B@41008',
+      'MOV000@41',
+      'ADD@50001@50',
+      'JMP008',
+      '000000000000',
+      '000000000000',
+      '000000000000',
+      '001010-01-10',
+    ]);
+  }
+
+  drawLevel() {
+    var level = this.getCurrentLevel();
+    var x,y;
+    for (var p = 0; p < level.length; p++) {
+      x = p % 16;
+      y = ~~(p / 16);
+      this.targetScreen.drawPixel(x,y, level[p])
+    }
+  }
+
   getCurrentLevel() {
     if (!this.currentLevel) {
       var l = '';
@@ -940,20 +1014,6 @@ class Box256 {
 
 }
 
-var test = [
-'MOV020@20',
-'ADD001@20@20',
-]
-var test2 = [
-'MOV020@20',
-'ADD001@20@20',
-'PIX@20008',
-'ADD005@20*20',
-'PIX@20009',
-'9ER001002@20',
-'0A9001002@20',
-'PIX@20000',
-];
 
 var CurosorDir = {
   left: 0,

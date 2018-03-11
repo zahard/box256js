@@ -18,7 +18,7 @@ class CommandManager {
       'MUL': 'rrw',
       'DIV': 'rrw',
       'MOD': 'rrw',
-      'THR': 'r',
+      'THR': 'w',
       'FLP': 'ww'
     };
 
@@ -120,6 +120,14 @@ class CommandManager {
     return (typeof this.commands[cmd] !== 'undefined');
   }
 
+  getCommandName(cmdCode) {
+    var cmd = this.commandMap[cmdCode];
+    if (!cmd) {
+      return '';
+    }
+    return cmd.substr(0,3);
+  }
+
   setMemory(memory) {
     this.memory = memory;
   }
@@ -187,26 +195,50 @@ class CommandManager {
     var b = this.getValue(args[1], argTypes[1]);
     var y = ~~(a / 16);
     var x = a % 16;
+    var color = b % 16;
 
-    this.screen.drawPixel(x,y, b);
+    this.screen.drawPixel(x,y, color);
   }
 
   execJMP(args, argTypes) {
-    var jmpTo = this.getValue(args[0], argTypes[0]);
-    return jmpTo;
+    return this.jumpTo(args[0], argTypes[0]);
+  }
+
+  jumpTo(num, type) {
+    // If constant value return offset
+    if (type == 'c') {
+      var lines = Math.ceil(this.getValue(num, type) / 4);
+      if (lines > 31) {
+        lines = lines % 32;
+      }
+      return {
+        jumpOffset: lines
+      }
+    } else {
+      if (type == 'm') type = 'c';
+      if (type == 'p') type = 'm';
+      return {
+        jumpTo: this.getValue(num, type)
+      }
+    }
   }
 
   execTHR(args, argTypes) {
-    var jmpTo = this.getValue(args[0], argTypes[0]);
-    return -jmpTo;
+    var type = argTypes[0]
+    if (type == 'm') type = 'c';
+    if (type == 'p') type = 'm';
+
+    var jumpTo = this.getValue(args[0], type);
+    return {
+      createdThread: jumpTo
+    };
   }
 
   execJGR(args, argTypes) {
     var a = this.getValue(args[0], argTypes[0]);
     var b = this.getValue(args[1], argTypes[1]);
     if (a > b) {
-      var jumpTo = this.getValue(args[2], argTypes[2]);
-      return jumpTo;
+      return this.jumpTo(args[2], argTypes[2]);
     }
   }
 
@@ -214,8 +246,7 @@ class CommandManager {
     var a = this.getValue(args[0], argTypes[0]);
     var b = this.getValue(args[1], argTypes[1]);
     if (a === b) {
-      var jumpTo = this.getValue(args[2], argTypes[2]);
-      return jumpTo;
+      return this.jumpTo(args[2], argTypes[2]);
     }
   }
 
@@ -223,8 +254,7 @@ class CommandManager {
     var a = this.getValue(args[0], argTypes[0]);
     var b = this.getValue(args[1], argTypes[1]);
     if (a !== b) {
-      var jumpTo = this.getValue(args[2], argTypes[2]);
-      return jumpTo;
+      return this.jumpTo(args[2], argTypes[2]);
     }
   }
 

@@ -1,21 +1,17 @@
 
 class ScreenRender {
 
-  constructor(cxt) {
+  constructor(offset) {
 
-    this.layer = cxt;
+    this.scrOffset = offset;
 
-    // First pixel coords
-    this.scrOffset = {
-      y: 3*16, x: 30*16
-    };
     this.pixelSize = 16;
 
     this.resetPixels();
   }
 
   resetPixels() {
-    this.pixels = new Array(256).fill(0);
+    this.pixels = new Array(256).fill('0');
   }
 
   getPixels() {
@@ -35,7 +31,7 @@ class ScreenRender {
     cxt.restore();
 
     // Set pixel value
-    this.pixels[x * 16 + y] = colorIndex;
+    this.pixels[x + y * 16] = colorIndex.toString(16).toUpperCase();
   }
 
   resetScreen() {

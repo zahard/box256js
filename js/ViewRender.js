@@ -242,28 +242,40 @@ class ViewRender {
     var cell = 16;
     var count = 16;
     var num;
-    cxt.set('fillStyle', '#444');
+
+    this.drawGrid(x,y, count, cell);
+
+
+    this.drawGrid(x,y + 16*cell, count, cell);
 
     this.size = 8;
     this.font = this.fontColors['white'];
-    for (var i = 0; i <= count; i++) {
-      cxt.fillRect(x + (i * cell), y, 1, 256);
-      cxt.fillRect(x, y + (i * cell) , 256, 1);
-    }
-
-    var a1, a0;
     var xOff = x - 10;
     var yOff = y - 10;
     for (var i = 0; i < count; i++) {
       num = i.toString(16).toUpperCase();
-
-
       this.drawChar(num, xOff, y + 4 + i * 16);
       this.drawChar(num, x + 4 + i * 16, yOff);
-
     }
+
     cxt.restore();
     this.size = 16;
+  }
+
+  drawGrid(x, y, count, cell) {
+    var cxt = this.activeLayer;
+    cxt.set('fillStyle', '#555');
+    for (var i = 0; i <= count; i++) {
+      if (i > 0 && i < count) {
+        for (var j = 0; j < 64; j+=1) {
+          cxt.fillRect(x  + j*4 , y + (i * cell), 2, 1);
+          cxt.fillRect(x + (i * cell), y  + j*4 , 1, 2);
+        }
+      } else {
+        cxt.fillRect(x + (i * cell), y, 1, 256);
+        cxt.fillRect(x, y + (i * cell) , 256, 1);
+      }
+    }
   }
 
 }
