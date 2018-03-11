@@ -164,6 +164,7 @@ class ViewRender {
   drawChar(char, x, y, bgcolor) {
     const cxt = this.activeLayer;
     var size = this.size;
+
     var fontSize = 8;
     var code = char.charCodeAt();
     var cy = parseInt(code / 16, 10) * 9 + 1;
@@ -248,7 +249,8 @@ class ViewRender {
 
     this.drawGrid(x,y + 16*cell, count, cell);
 
-    this.size = 8;
+    var prevS = this.size;
+    this.size = this.size / 2;
     this.font = this.fontColors['white'];
     var xOff = x - 10;
     var yOff = y - 10;
@@ -259,7 +261,7 @@ class ViewRender {
     }
 
     cxt.restore();
-    this.size = 16;
+    this.size = prevS;
   }
 
   drawGrid(x, y, count, cell) {
@@ -276,6 +278,39 @@ class ViewRender {
         cxt.fillRect(x, y + (i * cell) , 256, 1);
       }
     }
+  }
+
+  saveArea(area) {
+    if (!this.cache) {
+      var cnv = document.createElement('canvas');
+      var layer = new Layer(cnv, 64, 64, 0, '');
+      this.cache = layer;
+    }
+
+    area.x *= this.size;
+    area.y *= this.size;
+    area.w *= this.size;
+    area.h *= this.size;
+
+    var cxt = this.activeLayer;
+    this.cache.drawImage(cxt.cnv,
+      area.x, area.y,
+      area.w, area.h,
+      0,0,
+      area.w, area.h,
+    );
+
+    return area;
+  }
+
+  restoreArea(area) {
+    var cxt = this.activeLayer;
+    cxt.drawImage(this.cache.cnv,
+      0,0,
+      area.w, area.h,
+      area.x, area.y,
+      area.w, area.h,
+    )
   }
 
 }

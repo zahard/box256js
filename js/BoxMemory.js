@@ -5,6 +5,8 @@ class BoxMemory {
     // For redraw memory cells
     this.view = viewRender;
 
+    this.hoverColor = 'grey';
+
     // Commands validator
     this.cmdManager = cmdManager;
 
@@ -107,17 +109,59 @@ class BoxMemory {
 
   drawMemoryLine(line, error, invert) {
     const index = line * 4;
-    let byte, color, bg;
+
+    let bg;
+    let forceColor;
+    if (error) {
+      forceColor = 'red';
+    }
+    if (invert) {
+      forceColor = 'black';
+      bg = '#6ddd64';
+    }
+
+    const bytes = [];
+    for (let i = 0; i < 4; i++) {
+      bytes.push(this.memory.get(index + i));
+    }
+
+    let colors = [];
+    if (!forceColor) {
+      let firstSet = bytes[0] != '00';
+      colors = new Array('lightgreen');
+      for (let i = 3; i >= 0; i--) {
+        if (bytes[i] == '00') {
+          colors[i] = 'green';
+        } else if (firstSet) {
+            break;
+        }
+      }
+    }
+
     // Draw each memory byte
     for (let i = 0; i < 4; i++) {
-      byte = this.memory.get(index + i);
-      color = error ? 'red': (byte == '00' ? 'green' : 'lightgreen');
-      if (invert) {
-        color = 'black';
-        bg = '#6ddd64';
-      }
-      this.drawMemoryByte(index + i, byte, color, bg);
+      let color = forceColor ? forceColor : colors[i];
+      this.drawMemoryByte(index + i, bytes[i], color, bg);
     }
+  }
+
+  restoreHovered() {
+    this.view.restoreArea(this.hoveredArea);
+  }
+
+  drawMemoryIndex(index) {
+    let val = index.toString(16).toUpperCase();
+    if (val.length == 1) val = '0' + val;
+
+    var area = {
+      x: this.memCellOffset.x + (index % 4) * 2,
+      y: this.memCellOffset.y + (~~(index / 4)),
+      w: 2,
+      h: 1
+    };
+    this.hoveredArea = this.view.saveArea(area);
+
+    this.drawMemoryByte(index, val, this.hoverColor);
   }
 
   drawMemoryByte(index, value, color, bg) {

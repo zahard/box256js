@@ -6,10 +6,16 @@ class Box256 {
     this.width = 800;
     this.height = 640;
 
+    this.gridSize = 16;
+
     this.wrapper = wrapper;
 
     this.wrapper.style.width = this.width + 'px';
     this.wrapper.style.height = this.height + 'px';
+
+    this.hoverCell = {
+      x:0, y: 0
+    }
 
     // Active area width
     this.cellsInRow = 12;
@@ -70,7 +76,7 @@ class Box256 {
       wrapper: this.wrapper,
       height: this.height,
       width: this.width,
-      cellSize: 16,
+      cellSize: this.gridSize,
       lines: this.linesCount
     });
 
@@ -217,8 +223,6 @@ class Box256 {
 
     var results = this.cmdManager.exec(cmd, [a,b,c]);
 
-    console.log(results)
-
     // By default run next line
     var nextLine = line + 1;
 
@@ -277,6 +281,19 @@ class Box256 {
       x: this.cellsOffset.x + x,
       y: this.cellsOffset.y + y,
     }
+  }
+
+  cellInEditor(cell) {
+    var line = cell.y - this.cellsOffset.y;
+    var rowPos =  cell.x - this.cellsOffset.x;
+    if (line > -1 && line < this.linesCount
+        && rowPos > -1 && rowPos < this.cellsInRow + 3)
+    {
+      rowPos = rowPos - ~~(rowPos / 4);
+      var pos = line * this.cellsInRow + rowPos;
+      return pos;
+    }
+    return -1;
   }
 
 
@@ -460,7 +477,7 @@ class Box256 {
     this.view.moveLines(this.getCellPosition(pos), this.linesCount - nextLine, 24, 1);
 
     // Draw new line
-    this.drawUnactiveCharLine(nextLine)
+    this.redrawLine(nextLine);
 
     // Put cursor on new line
     this.moveCursorToPos(pos);
@@ -497,7 +514,7 @@ class Box256 {
 
 
     // Draw new line at the end
-    this.drawUnactiveCharLine(this.linesCount - 1)
+    this.redrawLine(this.linesCount - 1);
 
     // update cursor
     this.moveCursorToPos(pos);
@@ -554,6 +571,7 @@ class Box256 {
   setChar(char, color) {
     var pos = this.cursorPos;
     this.putChar(pos, char, color)
+
     this.updateByte(~~(pos/3));
   }
 
@@ -573,8 +591,8 @@ class Box256 {
 
   drawActiveLines(threads) {
     threads.forEach(line => {
-      this.memoryBox.drawMemoryLine(line, false, true);
       this.drawActiveCharLine(line);
+      this.memoryBox.drawMemoryLine(line, false, true);
     });
   }
 
@@ -583,6 +601,11 @@ class Box256 {
       this.drawUnactiveCharLine(line);
       this.memoryBox.drawMemoryLine(line, false, false);
     });
+  }
+
+  redrawLine(line) {
+    this.drawCharsLine(line);
+    this.memoryBox.drawMemoryLine(line, false, false);
   }
 
   drawActiveCharLine(line) {
@@ -631,58 +654,12 @@ class Box256 {
   }
 
 
-  setByteChars(byteIndex, word, color) {
-    var s = byteIndex * 3;
-    for (i=0; i < 3; i++) {
-      var pos = s+i;
-      if (word[i] !== ' ') {
-        this.putChar(pos, word[i], color)
-      } else {
-        this.putChar(pos, null);
-      }
-
-      this.drawDataChar(pos);
-
-    }
-  }
-
   updateByte(byteIndex) {
-    var ctrlCharPos = byteIndex * 3;
-    var chars = this.getByteChars(byteIndex);
-    var isZero = false;
-    if (byteIndex % 4 != 0) {
-      isZero = this.updateNumericsChars(byteIndex, chars);
-    } else {
-      // If command byte
-      var word = ''
-      var char;
-      for (var i=0; char = chars[i], i<3; i++) {
-          word += char ? char[0] : '0';
-      }
-
-      // If valid command exists
-      if (this.commandColors[word]) {
-        this.setByteChars(byteIndex, word, this.commandColors[word])
-      } else {
-        // If start from digit or empty- lets update values
-        if ( /^[0-9A-F]{3}$/.test(word) ) {
-          // Mark fist letter grey
-          this.putChar(ctrlCharPos, word[0], 'grey');
-          // Actieate numeric values
-          isZero = this.updateNumericsChars(byteIndex, chars);
-
-        } else {
-          // Other wise disable all byte
-          this.setByteChars(byteIndex, word, 'grey')
-        }
-      }
-    }
-
     var line = this.getByteLineIndex(byteIndex);
-
+    this.updateLineColors(line);
+    this.drawCharsLine(line);
     // Put correct opcodes to memory on according line
     this.memoryBox.updateMemoryLine(line, this.getLineBytes(line));
-
   }
 
   getLineBytes(line) {
@@ -704,30 +681,69 @@ class Box256 {
   }
 
 
-  updateNumericsChars(byteIndex, chars) {
-    var ctrlCharPos = byteIndex * 3;
-    // Check if all 3 chars are empty or queal ZERO
-    var zeroChars = 0;
-    for (var i = 0; i < 3; i++) {
-      if(!chars[i] || chars[i][0] == '0') zeroChars++;
-    }
-
-    // Disable byte is all zeros
-    if (zeroChars == 3) {
-      this.setByteChars(byteIndex, '   ', 'grey');
-    } else {
-      // Activate numbers, and set it to zero
-      for (var i = 1; i < 3; i++) {
-        var char = chars[i];
-        this.putChar(ctrlCharPos + i, char ? char[0] : '0');
-        this.drawDataChar(ctrlCharPos + i);
-      }
+  onHoverCell() {
+    var index = this.cellInMemory(this.hoverCell);
+    if (index > -1) {
+      this.hoverMemory(index);
+    } else if (this.hoveredMemCell != -1) {
+      this.hoverMemory(-1);
     }
   }
 
+  onClick() {
+    var pos = this.cellInEditor(this.hoverCell);
+    if (pos > -1) {
+      this.moveCursorToPos(pos)
+    }
+  }
+
+  cellInMemory(cell) {
+    var col = cell.x - this.memCellOffset.x;
+    if (col < 0 || col > 7) return -1;
+
+    var line = cell.y - this.memCellOffset.y;
+    if (line < 0 || line >= this.linesCount) return -1;
+
+    var pos = line * 4 + (~~(col/2));
+    return pos;
+  }
+
+  hoverMemory(index) {
+    if (this.hoveredMemCell === index) {
+      return;
+    }
+
+    // Restore old value
+    if (this.hoveredMemCell > -1) {
+      this.memoryBox.restoreHovered();
+    }
+
+    this.hoveredMemCell = index;
+    if (index < 0) return;
+
+    this.memoryBox.drawMemoryIndex(index, true);
+  }
 
   attachListeners() {
 
+    this.wrapper.addEventListener('mouseenter', (e) => {
+      this.trackMouse = true;
+    })
+    this.wrapper.addEventListener('mouseleave',(e) => {
+      this.trackMouse = false;
+    })
+
+    this.wrapper.addEventListener('mousemove',(e) => {
+      this.hoverCell = {
+        x: ~~(e.offsetX / this.gridSize),
+        y: ~~(e.offsetY / this.gridSize)
+      };
+      this.onHoverCell(this.hoverCell);
+    })
+
+    this.wrapper.addEventListener('click',(e) => {
+      this.onClick();
+    });
 
     window.addEventListener('keydown',function(e) {
       const code = e.keyCode;
@@ -966,10 +982,10 @@ class Box256 {
       'PIX@40001',
       'ADD@40*50@40',
       'ADD@41001@41',
-      'JGR00B@41008',
+      'JGR00B@41-0C',
       'MOV000@41',
       'ADD@50001@50',
-      'JMP008',
+      'JMP@08',
       '000000000000',
       '000000000000',
       '000000000000',
