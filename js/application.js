@@ -3,6 +3,28 @@ class Box256 {
 
   constructor(wrapper) {
 
+    this.pallete = {
+      black: '#111111',
+      blue: '#354367',
+      bordo: '#6c3652',
+      green: '#4f7f58',
+
+      brick: '#965b46',
+      grey: '#5d5751',
+      silver: '#c2c3c7',
+      white: '#fefefe',
+
+      red: '#d74f5e',
+      orange: '#e7a856',
+      yellow: '#fef877',
+      lightgreen: '#6ddd64',
+
+      lightblue: '#6baef1',
+      purple: '#7f7a97',
+      pink: '#df8ba9',
+      cream: '#f0ceb4',
+    }
+
     this.width = 800;
     this.height = 640;
 
@@ -38,20 +60,20 @@ class Box256 {
     this.chars = new Array(this.cellsInRow * this.linesCount);
     this.colorMap = new Array(this.cellsInRow * this.linesCount);
 
-    this.bgColor = '#111';
+    this.bgColor = this.pallete.black;
 
     this.commandColors = {
       'MOV': 'green',
       'PIX': 'pink',
       'JMP': 'bordo',
-      'JNE': 'orange',
-      'JEQ': 'orange',
-      'JGR': 'orange',
-      'ADD': 'aqua',
-      'SUB': 'aqua',
-      'MUL': 'aqua',
-      'DIV': 'aqua',
-      'MOD': 'aqua',
+      'JNE': 'brick',
+      'JEQ': 'brick',
+      'JGR': 'brick',
+      'ADD': 'purple',
+      'SUB': 'purple',
+      'MUL': 'purple',
+      'DIV': 'purple',
+      'MOD': 'purple',
       'THR': 'yellow',
       'FLP': 'green',
     }
@@ -77,12 +99,26 @@ class Box256 {
       height: this.height,
       width: this.width,
       cellSize: this.gridSize,
-      lines: this.linesCount
+      lines: this.linesCount,
+      pallete: this.pallete
     });
 
     this.view.onReady(() => {
       // Draw background default data
       this.view.drawTemplate();
+
+      this.buttons = [];
+
+      this.stopButton = this.addButton(6, 36, 'STOP', () => {
+        this.stop();
+      }, true);
+      this.addButton(13, 36, 'STEP', () => {
+        this.step();
+      })
+
+      this.playButton = this.addButton(20, 36, 'PLAY', () => {
+        this.run();
+      })
 
       this.screen.layer = this.view.layers.back;
       this.targetScreen.layer = this.view.layers.back;
@@ -96,6 +132,21 @@ class Box256 {
 
   }
 
+  addButton(x, y, text, callback, disabled) {
+    var w = text.length + 2;
+    var button = {
+      handler: callback,
+      disabled: disabled || false,
+      x: x,
+      y: y,
+      w: w,
+      text: text
+    };
+    this.buttons.push(button);
+    this.view.drawButton(button);
+    return button;
+  }
+
   init() {
     this.runCursor(false);
     this.running = false;
@@ -107,6 +158,9 @@ class Box256 {
       this.prepareToRun();
     }
     this.step(true);
+
+    this.playButton.disabled = true;
+    this.view.drawButton(this.playButton);
   }
 
   prepareToRun() {
@@ -122,9 +176,6 @@ class Box256 {
     // Clear previous step timeout if exists
     clearTimeout(this.stepTimeout);
 
-    // Reset pixels screen
-    this.screen.resetScreen();
-
     // Lets count cycles
     this.cycles = 0;
 
@@ -132,6 +183,9 @@ class Box256 {
     this.threads = [0];
 
     this.running = true;
+
+    this.stopButton.disabled = false;
+    this.view.drawButton(this.stopButton);
 
     this.drawActiveLines(this.threads);
   }
@@ -142,6 +196,9 @@ class Box256 {
     } else {
       if (!async) {
         clearTimeout(this.stepTimeout);
+        this.playButton.disabled = false;
+        this.view.drawButton(this.playButton);
+
       } else {
         this.stepTimeout = setTimeout(() => {
           this.step(true);
@@ -208,10 +265,19 @@ class Box256 {
     // Put memory back
     this.memoryBox.restoreMemory();
 
+    // Reset pixels screen
+    this.screen.resetScreen();
+
     // Run cursor
     this.runCursor(false);
 
     this.running = false;
+
+    this.stopButton.disabled = true;
+    this.view.drawButton(this.stopButton);
+
+    this.playButton.disabled = false;
+    this.view.drawButton(this.playButton);
   }
 
   runInstruction(line) {
@@ -543,9 +609,7 @@ class Box256 {
       case "ref":
       case "min":
         if (rowPos > 0 && rowPos % 3 == 0) {
-          var color = type == 'ref' ? 'red':'lightblue';
-          if (type == 'min') color = 'white';
-          this.setChar(char, color);
+          this.setChar(char);
           valid = true;
         }
         break;
@@ -688,13 +752,49 @@ class Box256 {
     } else if (this.hoveredMemCell != -1) {
       this.hoverMemory(-1);
     }
+
+    var button = this.cellInButton(this.hoverCell);
+    if (button) {
+      if (this._hoveredButton !== button) {
+        if (this._hoveredButton) {
+          this._hoveredButton.active = false;
+          this.view.drawButton(this._hoveredButton);
+        }
+        button.active = true;
+        this._hoveredButton = button;
+        this.view.drawButton(button);
+      }
+    } else if (this._hoveredButton) {
+      this._hoveredButton.active = false;
+      this.view.drawButton(this._hoveredButton);
+      this._hoveredButton = null;
+    }
+  }
+
+  cellInButton(cell) {
+    if (cell.y != 36 && cell.y != 1) return;
+    var b;
+    for (var i =0; i < this.buttons.length; i++) {
+      b = this.buttons[i];
+      if (cell.x < b.x || cell.x >= b.x + b.w) {
+        continue;
+      }
+      if (cell.y == b.y) {
+        return b;
+      }
+    }
+
   }
 
   onClick() {
     var pos = this.cellInEditor(this.hoverCell);
     if (pos > -1) {
       this.moveCursorToPos(pos)
+    } else if (this._hoveredButton && !this._hoveredButton.disabled) {
+      this._hoveredButton.handler();
     }
+
+
   }
 
   cellInMemory(cell) {
@@ -986,9 +1086,9 @@ class Box256 {
       'MOV000@41',
       'ADD@50001@50',
       'JMP@08',
-      '000000000000',
-      '000000000000',
-      '000000000000',
+      'JGR000000000',
+      'THR000000000',
+      'SUB000000000',
       '001010-01-10',
     ]);
   }

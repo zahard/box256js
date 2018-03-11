@@ -8,6 +8,7 @@ class ViewRender {
     this.wrapper = obj.wrapper;
     this.size = obj.cellSize;
     this.lines = obj.lines;
+    this.pallete = obj.pallete;
 
     this.bgColor = '#111';
 
@@ -61,22 +62,37 @@ class ViewRender {
   }
 
   compileFonts() {
-    this.fontColors = {
-      white: this.fontImage,
-      black: this.copyFont(this.bgColor),
-      blue: this.copyFont('#384972'),
-      lightblue: this.copyFont('#54aff7'), // 6baef1
-      grey: this.copyFont('#5d5751'),
-      green: this.copyFont('#3d8154'), //  4f7f58
-      lightgreen: this.copyFont('#6ddd64'), //  8ada73
-      red: this.copyFont('#e9415b'), //  d74f5e
-      orange: this.copyFont('#9f5841'), //  965b46
-      pink: this.copyFont('#ed85aa'),
-      bordo: this.copyFont('#743253'), // jmp
-      aqua: this.copyFont('#807999'), // add
-      yellow: this.copyFont('#f6f073'), //
+    this.fontColors = {};
+    for (var color in this.pallete) {
+      this.fontColors[color] =this.copyFont(this.pallete[color]);
+    }
+  }
 
-    };
+  //* font generator * //
+  getFonts() {
+    var cnv = document.createElement('canvas');
+    cnv.style.background = 'transparent';
+    cnv.style.position = 'absolute';
+    this.wrapper.appendChild(cnv);
+    var cxt = new Layer(cnv, 512, 512, 3, '');
+    var i = 0;
+    var x = 0;
+    var y = 0;
+    var tileSize = 128;
+
+    for (var cnv in this.fontColors) {
+      if (x > 0 && x % 4 == 0) {
+        x = 0;
+        y++;
+      }
+      cxt.drawImage(cnv,
+        0,0,
+        tileSize, tileSize,
+        x * tileSize, y * tileSize,
+        tileSize, tileSize,
+      )
+      x++;
+    }
   }
 
   copyFont(color) {
@@ -110,8 +126,8 @@ class ViewRender {
 
     this._text('MEMORY', 21, y, 'green');
 
-    this._text('[    ]', 6 , y, 'grey');
-    this._text('SAVE', 7 , y, 'white');
+    this._text('[    ]', 5 , y, 'grey');
+    this._text('SAVE', 6 , y, 'white');
 
     this._text('[    ]', 13 , y, 'grey');
     this._text('LOAD', 14 , y, 'white');
@@ -136,6 +152,20 @@ class ViewRender {
 
   }
 
+  drawButton(b) {
+    var color = b.active ? 'black' : 'white'
+    var color_sec = b.active ? 'black': 'grey'
+    var bgColor = b.active ? 'white': 'black';
+    var bgColor_sec = b.active ? 'grey': 'black';
+    if (b.disabled) {
+      color = color_sec = 'grey';
+      bgColor = bgColor_sec = 'black';
+    }
+
+    this._text('[', b.x, b.y, color_sec, bgColor_sec);
+    this._text(b.text, b.x + 1 , b.y, color, bgColor);
+    this._text(']', b.x + b.w - 1, b.y, color_sec, bgColor_sec);
+  }
 
 
   drawText(text, coords, color, bgcolor) {
