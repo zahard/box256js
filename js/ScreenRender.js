@@ -19,6 +19,10 @@ class ScreenRender {
   }
 
   drawPixel(x, y, colorIndex) {
+    if (colorIndex > 15) {
+      colorIndex = colorIndex & 16;
+    }
+
     var cxt = this.layer;
     cxt.save()
 
@@ -27,9 +31,7 @@ class ScreenRender {
     var color = this.getColor(colorIndex);
     cxt.set('fillStyle', color);
     cxt.fillRect(sx, sy, this.pixelSize - 1, this.pixelSize - 1);
-
     cxt.restore();
-
     // Set pixel value
     this.pixels[x + y * 16] = colorIndex.toString(16).toUpperCase();
   }

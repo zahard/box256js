@@ -25,8 +25,8 @@ class Box256 {
       cream: '#f0ceb4',
     }
 
-    this.width = 800;
-    this.height = 640;
+    this.width = 1200;
+    this.height = 840;
 
     this.gridSize = 16;
 
@@ -112,13 +112,30 @@ class Box256 {
       this.stopButton = this.addButton(6, 36, 'STOP', () => {
         this.stop();
       }, true);
+
       this.addButton(13, 36, 'STEP', () => {
         this.step();
-      })
+      });
 
       this.playButton = this.addButton(20, 36, 'PLAY', () => {
         this.run();
-      })
+      });
+
+      this.prevLevelButton = this.addButton(30, 36, 'PREV', () => {
+        this.level--;
+        if (this.level < 0) {
+          this.level = this.levels.length - 1;
+        }
+        this.loadLevel();
+      });
+
+      this.nextLevelButton = this.addButton(40, 36, 'NEXT', () => {
+        this.level++;
+        if (this.level >= this.levels.length) {
+          this.level = 0;
+        }
+        this.loadLevel();
+      });
 
       this.screen.layer = this.view.layers.back;
       this.targetScreen.layer = this.view.layers.back;
@@ -130,6 +147,7 @@ class Box256 {
 
     this.cmdManager.setMemory(this.memoryBox);
 
+    this.levels = getLevels();
   }
 
   addButton(x, y, text, callback, disabled) {
@@ -148,6 +166,7 @@ class Box256 {
   }
 
   init() {
+    this.level = 0;
     this.runCursor(false);
     this.running = false;
     this.loadFirstLevel()
@@ -164,8 +183,10 @@ class Box256 {
   }
 
   prepareToRun() {
+
     // Stop cursor blicking
     this.resetCursorInterval();
+
     // Remove cursor
     this.drawCursor(false);
 
@@ -393,6 +414,7 @@ class Box256 {
   runCursor(initalValue) {
     this.cursor = initalValue;
     this.drawCursor();
+    clearInterval(this.cursorInterval);
     this.cursorInterval = setInterval(()=>{
       this.cursor = !this.cursor;
       this.drawCursor()
@@ -787,14 +809,12 @@ class Box256 {
   }
 
   onClick() {
-    var pos = this.cellInEditor(this.hoverCell);
+    var pos = this.running ? -1 : this.cellInEditor(this.hoverCell);
     if (pos > -1) {
       this.moveCursorToPos(pos)
     } else if (this._hoveredButton && !this._hoveredButton.disabled) {
       this._hoveredButton.handler();
     }
-
-
   }
 
   cellInMemory(cell) {
@@ -1073,9 +1093,9 @@ class Box256 {
     }
   }
 
-
   loadFirstLevel() {
-    this.drawLevel();
+    this.level = 0;
+    this.loadLevel();
     this.loadProgramm([
       'MOV022@40',
       'MOV030@50',
@@ -1086,43 +1106,32 @@ class Box256 {
       'MOV000@41',
       'ADD@50001@50',
       'JMP@08',
-      'JGR000000000',
-      'THR000000000',
-      'SUB000000000',
+      '',
+      '',
+      '',
       '001010-01-10',
     ]);
   }
 
+  loadLevel() {
+    this.currentLevel = this.levels[this.level];
+    this.drawLevel();
+  }
+
   drawLevel() {
     var level = this.getCurrentLevel();
-    var x,y;
+    var x,y,c;
     for (var p = 0; p < level.length; p++) {
       x = p % 16;
       y = ~~(p / 16);
-      this.targetScreen.drawPixel(x,y, level[p])
+      c = parseInt(level[p],16);
+      this.targetScreen.drawPixel(x,y, c)
     }
   }
 
   getCurrentLevel() {
     if (!this.currentLevel) {
-      var l = '';
-      l += '0000000000000000';
-      l += '0000000000000000';
-      l += '0011111111111100';
-      l += '0010000000000100';
-      l += '0010000000000100';
-      l += '0010000000000100';
-      l += '0010000000000100';
-      l += '0010000000000100';
-      l += '0010000000000100';
-      l += '0010000000000100';
-      l += '0010000000000100';
-      l += '0010000000000100';
-      l += '0010000000000100';
-      l += '0011111111111100';
-      l += '0000000000000000';
-      l += '0000000000000000';
-      this.currentLevel = l;
+       this.currentLevel = getLevel(0);
     }
 
     return this.currentLevel;

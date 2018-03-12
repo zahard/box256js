@@ -59,6 +59,7 @@ class ViewRender {
       }
     }
     this.fontImage.src = 'dos_font_black.png'
+
   }
 
   compileFonts() {
@@ -197,8 +198,8 @@ class ViewRender {
 
     var fontSize = 8;
     var code = char.charCodeAt();
-    var cy = parseInt(code / 16, 10) * 9 + 1;
-    var cx = (code % 16) * 9 + 1;
+    var cy = parseInt(code / 16, 10) * (fontSize+1) + 1;
+    var cx = (code % 16) * (fontSize+1) + 1;
 
     // Clear
     cxt.set('fillStyle', bgcolor || this.bgColor);
