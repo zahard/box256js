@@ -1,7 +1,7 @@
 var resources = [
     'Layer',
     'KeyboardManager',
-    'Memory',
+    'memory',
     'BoxMemory',
     'ViewRender',
     'ScreenRender',
