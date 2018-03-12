@@ -311,6 +311,33 @@ class ViewRender {
     }
   }
 
+  drawAllocated(count, active) {
+    var offset = {x:19, y:38}
+    this._text('LOC:', offset.x, offset.y, 'grey');
+
+    var countStr = count.toString(16).toUpperCase();
+    if (countStr.length == 1) countStr = '0' + countStr;
+    this._text(countStr, offset.x + 5, offset.y, active ? 'yellow':'grey');
+
+  }
+
+  drawCycles(count) {
+    var offset = {x:6, y:38}
+    this._text('CYCLES:', offset.x, offset.y, 'grey');
+    if (!count) {
+      this._text('0000', offset.x + 8, offset.y, 'grey');
+    } else {
+      var countStr = count.toString(16).toUpperCase()
+      var leadZeros = 4 - countStr.length;
+      if (leadZeros > 0) {
+        countStr = new Array(leadZeros).fill('0').join('') + countStr;
+      } else {
+        countStr = countStr.substr(-4);
+      }
+      this._text(countStr, offset.x + 8, offset.y, 'orange');
+    }
+  }
+
   saveArea(area) {
     if (!this.cache) {
       var cnv = document.createElement('canvas');

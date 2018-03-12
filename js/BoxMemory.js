@@ -20,6 +20,8 @@ class BoxMemory {
 
     this.lockedValues = {};
 
+    this.takenLines = 0;
+
   }
 
   validateCommand(bytes) {
@@ -69,6 +71,10 @@ class BoxMemory {
     for (var i = 0; i < linesCount; i++) {
       this.drawMemoryLine(i);
     }
+  }
+
+  count() {
+    return 11;
   }
 
   updateMemoryLine(line, bytes) {

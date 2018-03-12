@@ -137,8 +137,13 @@ class Box256 {
         this.loadLevel();
       });
 
+      this.view.drawCycles(0);
+
+      this.view.drawAllocated(this.memoryBox.count(), false)
+
       this.screen.layer = this.view.layers.back;
       this.targetScreen.layer = this.view.layers.back;
+
 
       this.init();
     });
@@ -200,6 +205,11 @@ class Box256 {
     // Lets count cycles
     this.cycles = 0;
 
+    this.screen.resetScreen();
+
+    // Draw active memory
+    this.view.drawAllocated(this.memoryBox.count(), true)
+
     this.createdThread = -1;
     this.threads = [0];
 
@@ -228,6 +238,7 @@ class Box256 {
 
       // Count cycles
       this.cycles++;
+      this.view.drawCycles(this.cycles);
 
       // Deactivate current line
       this.drawUnactiveLines(this.threads);
@@ -271,7 +282,7 @@ class Box256 {
 
   }
 
-  stop() {
+  stop(completed) {
     if (!this.running) return;
 
     // stop timeout
@@ -283,11 +294,22 @@ class Box256 {
     // Reset step
     this.threads = [];
 
+    if (!completed) {
+      this.cycles = 0;
+    }
+    this.view.drawCycles(this.cycles);
+
+
     // Put memory back
     this.memoryBox.restoreMemory();
 
     // Reset pixels screen
-    this.screen.resetScreen();
+    if (!completed) {
+      this.screen.resetScreen();
+    }
+
+    // Draw active memory
+    this.view.drawAllocated(this.memoryBox.count(), false)
 
     // Run cursor
     this.runCursor(false);
@@ -385,8 +407,8 @@ class Box256 {
 
 
   onLevelCompleted() {
-    this.stop();
     console.log('Level completed. It takes', this.cycles, 'cycles');
+    this.stop(true);
   }
 
   isLevelReady(cmd) {
