@@ -7,7 +7,7 @@ class CommandManager {
 
     // r - readable, w - writable (ref only)
     this.commands = {
-      'MOV': 'rw',
+      'MOV': 'rwr',
       'PIX': 'rr',
       'JMP': 'r',
       'JNE': 'rrr',
@@ -19,7 +19,7 @@ class CommandManager {
       'DIV': 'rrw',
       'MOD': 'rrw',
       'THR': 'w',
-      'FLP': 'ww'
+      'FLP': 'wwr'
     };
 
     this.commandsSorted = [
@@ -113,6 +113,7 @@ class CommandManager {
   }
 
   getCommandRequiredArgs(cmd) {
+    if (cmd === 'MOV') return 2;
     return this.commands[cmd].length;
   }
 
@@ -179,8 +180,22 @@ class CommandManager {
   }
 
   execMOV(args, argTypes) {
-    var a = this.getValue(args[0], argTypes[0]);
-    this.setValue(a, args[1], argTypes[1]);
+    var count = this.getValue(args[2], argTypes[2]) || 1;
+
+    // Repeat constant values
+    if (argTypes[0] == 'c') {
+      var val = args[0];
+      var destAddress = this.getAddress(args[1], argTypes[1]);
+      for (var i=0; i<count;i++) {
+        this.setAdressValue(val, destAddress + i);
+      }
+    } else {
+      var srcAddress = this.getAddress(args[0], argTypes[0]);
+      var destAddress = this.getAddress(args[1], argTypes[1]);
+      for (var i=0; i<count;i++) {
+        this.setAdressValue(this.getValue(srcAddress + i, 'm'), destAddress + i);
+      }
+    }
   }
 
   execFLP(args, argTypes) {
@@ -309,6 +324,21 @@ class CommandManager {
     return parseInt(byte, 16);
   }
 
+  getAddress(val, type) {
+    var adress;
+    switch (type) {
+      case "m":
+        adress = parseInt(val, 16);
+        break;
+      case "p":
+        var ref = parseInt(val, 16);
+        adress = parseInt(this.memory.getByte(ref), 16);
+        break;
+    }
+
+    return adress;
+  }
+
   setValue(val, dest, destType) {
     if (val > 255 ) {
       val = val % 256;
@@ -328,6 +358,16 @@ class CommandManager {
         this.memory.setByte(adress, val);
         break;
     }
+  }
+
+  setAdressValue(val, address) {
+    if (val > 255 ) {
+      val = val % 256;
+    } else if (val < 0) {
+      val = 256 + (val % 256);
+    }
+    val = this.toHex(val);
+    this.memory.setByte(address, val)
   }
 
   toHex(val) {

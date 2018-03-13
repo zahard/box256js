@@ -10,7 +10,7 @@ class ViewRender {
     this.lines = obj.lines;
     this.pallete = obj.pallete;
 
-    this.bgColor = '#111';
+    this.bgColor = this.pallete.black;
 
     // Layer to put data
     this.activeLayer = null;
@@ -25,6 +25,7 @@ class ViewRender {
     this.layers = {
       back: layerFactory.create('back', 1),
       data: layerFactory.create('data', 2),
+      editor: layerFactory.create('editor', 3),
     }
 
     this.loadImages();
@@ -40,7 +41,7 @@ class ViewRender {
     this.activeLayer = this.layers.back;
     this.activeLayer.fillAll(this.bgColor);
 
-    this.drawScreen();
+    // this.drawScreen();
   }
 
   loadImages() {

@@ -4,6 +4,7 @@ var resources = [
     'levels',
     'actionsBuffer',
     'memory',
+    'codeEditor',
     'BoxMemory',
     'ViewRender',
     'ScreenRender',

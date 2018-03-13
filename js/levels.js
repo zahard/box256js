@@ -1,10 +1,6 @@
-
-(function(){
-
-})()
-
 var getLevels = (function() {
-  var levels = [];
+  var levels = [''
+  ];
   var l1 = new Array(16).fill('0000000000000000');
   l1[2] = '0011111111111100';
   l1[13] = '0011111111111100';

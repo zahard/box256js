@@ -25,7 +25,7 @@ class Box256 {
       cream: '#f0ceb4',
     }
 
-    this.width = 1200;
+    this.width = 800;
     this.height = 840;
 
     this.gridSize = 16;
@@ -104,9 +104,15 @@ class Box256 {
       pallete: this.pallete
     });
 
+    this.editor = new CodeEditor(this.view, this.pallete);
+
     this.view.onReady(() => {
+
+      this.editor.draw();
+
       // Draw background default data
-      this.view.drawTemplate();
+
+      //this.view.drawTemplate();
 
       this.buttons = [];
 
@@ -179,6 +185,8 @@ class Box256 {
   }
 
   init() {
+    this.editor.runCursor(false);
+    return;
     this.level = 0;
     this.runCursor(false);
     this.running = false;
@@ -357,17 +365,17 @@ class Box256 {
       return nextLine;
     }
 
-    if (results.createdThread) {
+    if (typeof results.createdThread !== 'undefined') {
       var thread = this.getNextInstuctionByByte(results.createdThread)
       // Created new thread from line
       this.createdThread = thread;
     }
 
     // If command change execution line
-    if (results.jumpTo) {
+    if (typeof results.jumpTo !== 'undefined') {
       nextLine = this.getNextInstuctionByByte(results.jumpTo);
     // If need to jump relatively
-    } else if (results.jumpOffset) {
+    } else if (typeof results.jumpOffset !== 'undefined') {
       nextLine = line + results.jumpOffset;
       if (nextLine > this.linesCount) {
         nextLine = nextLine % this.linesCount;
@@ -915,6 +923,7 @@ class Box256 {
   }
 
   onHoverCell() {
+    return
     var index = this.cellInMemory(this.hoverCell);
     if (index > -1) {
       this.hoverMemory(index);
@@ -956,6 +965,7 @@ class Box256 {
   }
 
   onClick() {
+    return;
     var pos = this.running ? -1 : this.cellInEditor(this.hoverCell);
     if (pos > -1) {
       this.moveCursorToPos(pos)
@@ -995,11 +1005,8 @@ class Box256 {
 
   attachListeners() {
 
-    this.wrapper.addEventListener('mouseenter', (e) => {
-      this.trackMouse = true;
-    })
     this.wrapper.addEventListener('mouseleave',(e) => {
-      this.trackMouse = false;
+      //TODO HANDLE
     })
 
     this.wrapper.addEventListener('mousemove',(e) => {
@@ -1015,8 +1022,10 @@ class Box256 {
     });
 
     window.addEventListener('keydown',function(e) {
+
       const code = e.keyCode;
 
+      /*
       if (code == 91 || e.key == "Meta" || code == 17 || code == 16) {
         return;
       }
@@ -1046,7 +1055,9 @@ class Box256 {
           this.resetSelection();
         }
       }
+      */
 
+      /*
       if (e.key == 'Tab') {
         e.preventDefault();
         return;
@@ -1060,8 +1071,20 @@ class Box256 {
       } else if (e.keyCode == 13) {// Enter
         this.insertNewLine(e.shiftKey);
         return;
+      }*/
+
+
+      // Validate input
+      if (/^[0-9a-zA-Z\@\*\-]$/.test(e.key)) {
+        this.editor.insertChar(e.key.toUpperCase());
       }
 
+      if (code > 36 && code <  41) {
+        e.preventDefault();
+        this.editor.moveCursor(code - 37);
+      }
+
+      return;
 
       if (/^[0-9a-fA-F]$/.test(e.key)) {
         this.insertChar(e.key.toUpperCase(), 'num');
@@ -1253,6 +1276,14 @@ class Box256 {
   loadFirstLevel() {
     this.level = 0;
     this.loadLevel();
+
+    this.loadProgramm([
+    'MOV@08@0C005',
+    '',
+    '001002003004'
+    ])
+
+    return;
     this.loadProgramm([
       'MOV022@40',
       'MOV030@50',
@@ -1291,10 +1322,6 @@ class Box256 {
   }
 
   getCurrentLevel() {
-    if (!this.currentLevel) {
-       this.currentLevel = getLevel(0);
-    }
-
     return this.currentLevel;
   }
 
