@@ -127,11 +127,12 @@ class ViewRender {
 
     this._text('MEMORY', 21, y, 'green');
 
-    this._text('[    ]', 5 , y, 'grey');
-    this._text('SAVE', 6 , y, 'white');
 
-    this._text('[    ]', 13 , y, 'grey');
-    this._text('LOAD', 14 , y, 'white');
+    this._text('<<', 5 , y, 'white', 'grey');
+
+    this._text('[00-7F]', 8 , y, 'silver');
+
+    this._text('>>', 16 , y, 'white');
 
     y = 3;
 

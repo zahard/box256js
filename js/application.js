@@ -1055,6 +1055,7 @@ class Box256 {
         return;
       } else if (e.keyCode == 8) {// backspace
         this.removeCharBack();
+        e.preventDefault();
         return;
       } else if (e.keyCode == 13) {// Enter
         this.insertNewLine(e.shiftKey);
@@ -1075,6 +1076,7 @@ class Box256 {
       } else if (code == 32) {
         this.insertChar('', 'space');
       } else if (code > 36 && code <  41) {
+        e.preventDefault();
         if (e.shiftKey && code % 2 == 0) {
           this.selectLines(code - 37);
         } else {
