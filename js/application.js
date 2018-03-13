@@ -46,6 +46,7 @@ class Box256 {
     this.linesCount = 32;
 
     this.activeSelection = [];
+    this.clipboard = [];
 
     // Where active area start
     this.cellsOffset = {x: 4, y: 3};
@@ -57,7 +58,7 @@ class Box256 {
 
     this.charsArraySize = this.cellsInRow * this.linesCount;
     // Map of chars in editor and their colors
-    this.chars = new Array(this.cellsInRow * this.linesCount);
+    this.chars = new Array(this.cellsInRow * this.linesCount).fill('0')
     this.colorMap = new Array(this.cellsInRow * this.linesCount);
 
     this.bgColor = this.pallete.black;
@@ -78,7 +79,7 @@ class Box256 {
       'FLP': 'green',
     }
 
-    this.stepDelay = 25;
+    this.stepDelay = 15;
 
     setTimeout(() => {
       this.attachListeners()
@@ -139,7 +140,7 @@ class Box256 {
 
       this.view.drawCycles(0);
 
-      this.view.drawAllocated(this.memoryBox.count(), false)
+      this.view.drawAllocated(this.getUsedLines(), false)
 
       this.screen.layer = this.view.layers.back;
       this.targetScreen.layer = this.view.layers.back;
@@ -148,11 +149,18 @@ class Box256 {
       this.init();
     });
 
+    this.memCount = 0;
+
     this.memoryBox = new BoxMemory(this.view, this.cmdManager);
 
     this.cmdManager.setMemory(this.memoryBox);
 
     this.levels = getLevels();
+
+    this.actionsBuffer = new ActionsBuffer(this);
+
+    this.linesValue = new Array(this.linesCount).fill(0);
+
   }
 
   addButton(x, y, text, callback, disabled) {
@@ -208,7 +216,7 @@ class Box256 {
     this.screen.resetScreen();
 
     // Draw active memory
-    this.view.drawAllocated(this.memoryBox.count(), true)
+    this.view.drawAllocated(this.getUsedLines(), true)
 
     this.createdThread = -1;
     this.threads = [0];
@@ -245,6 +253,8 @@ class Box256 {
 
       this.memoryBox.setReadLock();
 
+      // Level ready on this step
+      var completed = false;
 
       for (var thx = 0; thx < this.threads.length; thx++) {
         // Execute line command
@@ -253,8 +263,9 @@ class Box256 {
 
         // If level ready
         if (next == -1) {
-          this.onLevelCompleted();
-          return;
+          completed = true;
+          // Force to next line
+          next = this.threads[thx] + 1;
         }
 
         // Check if we have more lines to run
@@ -278,6 +289,10 @@ class Box256 {
       // Hightlight next line(s)
       this.drawActiveLines(this.threads);
 
+      if (completed) {
+        this.onLevelCompleted();
+      }
+
     }
 
   }
@@ -294,22 +309,18 @@ class Box256 {
     // Reset step
     this.threads = [];
 
-    if (!completed) {
-      this.cycles = 0;
-    }
-    this.view.drawCycles(this.cycles);
 
+    this.cycles = 0;
+    this.view.drawCycles(this.cycles);
 
     // Put memory back
     this.memoryBox.restoreMemory();
 
     // Reset pixels screen
-    if (!completed) {
-      this.screen.resetScreen();
-    }
+    this.screen.resetScreen();
 
     // Draw active memory
-    this.view.drawAllocated(this.memoryBox.count(), false)
+    this.view.drawAllocated(this.getUsedLines(), false)
 
     // Run cursor
     this.runCursor(false);
@@ -407,8 +418,26 @@ class Box256 {
 
 
   onLevelCompleted() {
-    console.log('Level completed. It takes', this.cycles, 'cycles');
-    this.stop(true);
+    // Pause execusion
+    clearTimeout(this.stepTimeout);
+    this.playButton.disabled = false;
+    this.view.drawButton(this.playButton);
+
+    var colors = ['lightgreen', 'green'];
+    var index = 0;
+    this.view.drawText('--= LEVEL DONE =--', {x: 7, y:40}, colors[index]);
+    this.levelDoneInterval = setInterval(() => {
+      index = index ? 0 : 1
+      this.view.drawText('--= LEVEL DONE =--', {x: 7, y:40}, colors[index]);
+    }, 500);
+  }
+
+  buttonClicked() {
+    if (this.levelDoneInterval) {
+      clearInterval(this.levelDoneInterval);
+      this.levelDoneInterval = null;
+      this.view.drawText('                  ', {x: 7, y:40}, 'black');
+    }
   }
 
   isLevelReady(cmd) {
@@ -449,7 +478,7 @@ class Box256 {
       value = this.cursor;
     }
 
-    var char = this.chars[this.cursorPos] || '0';
+    var char = this.chars[this.cursorPos];
     var color = this.colorMap[this.cursorPos] || 'grey';
     if (value) {
       this.view.drawText(char, this.activeCell, 'black', '#fff');
@@ -518,14 +547,27 @@ class Box256 {
   pasteSelection() {
     if (!this.clipboard.length) return;
     var line = ~~(this.cursorPos/this.cellsInRow);
-    for (var i =0; i< this.clipboard.length;i++) {
+    var chars = [];
+    for (var i = 0; i< this.clipboard.length;i++) {
+      chars.push(this.getLineChars(line + i));
       this.putLineChars(this.clipboard[i], line + i);
+    }
+
+    var oldChars = [].concat.apply([], chars).join('');
+    var newChars = [].concat.apply([], this.clipboard).join('');
+    if (oldChars !== newChars) {
+      this.actionsBuffer.add({
+        type: 'paste',
+        line: line,
+        cur: line * this.cellsInRow,
+        oldVal: chars,
+        newVal: this.clipboard.slice()
+      });
     }
   }
 
-
   removeChar() {
-    this.setChar(null);
+    this.setChar('0');
     this.drawCursor(this.cursor);
   }
 
@@ -533,10 +575,11 @@ class Box256 {
     if (this.cursorPos < 1) {
       return;
     }
-    this.moveCursor(CurosorDir.left)
-    this.setChar(null);
-    this.drawCursor(this.cursor);
 
+    this.moveCursor(CurosorDir.left)
+    this.saveChar(this.cursorPos, '0', this.cursorPos + 1);
+    this.setCharToPos(this.cursorPos, '0');
+    this.drawCursor(true)
   }
 
   onDelete() {
@@ -551,8 +594,10 @@ class Box256 {
     }
   }
 
-  insertNewLine(stayOnLine) {
-    var line = ~~(this.cursorPos/this.cellsInRow);
+  insertNewLine(stayOnLine, line, chars, skipBuffer) {
+    if(!line) {
+      line = ~~(this.cursorPos/this.cellsInRow);
+    }
     var nextLine = stayOnLine ? line : line + 1;
 
     if (nextLine >= this.linesCount) {
@@ -565,13 +610,13 @@ class Box256 {
     this.drawCursor(false);
 
     // PUsh new line chars
-    var newLineArgs = new Array(this.cellsInRow).fill('0');
+    var newLineArgs = chars ? chars : new Array(this.cellsInRow).fill('0');
+
     newLineArgs.unshift(pos, 0);
     Array.prototype.splice.apply(this.chars, newLineArgs);
 
     // Trim array
-    this.chars.splice(this.charsArraySize);
-
+    var removedChars = this.chars.splice(this.charsArraySize);
 
     // PUsh new line colors
     var newColorsArgs = new Array(this.cellsInRow).fill('grey');
@@ -580,28 +625,51 @@ class Box256 {
     // Trim array
     this.colorMap.splice(this.charsArraySize);
 
-
     // Shift memory
     this.memoryBox.insertMemoryLine(nextLine);
 
     this.view.moveLines(this.getCellPosition(pos), this.linesCount - nextLine, 24, 1);
 
-    // Draw new line
-    this.redrawLine(nextLine);
+    // Update new line
+    this.updateLine(nextLine);
 
     // Put cursor on new line
     this.moveCursorToPos(pos);
 
+    if (!skipBuffer) {
+      this.actionsBuffer.add({
+        type: 'insertLine',
+        line: nextLine,
+        cur: stayOnLine ? pos : pos - this.cellsInRow,
+        prevCur: pos,
+        chars: removedChars
+      });
+    }
+
   }
 
-  removeCurrentLine() {
-    var line = ~~(this.cursorPos/this.cellsInRow);
+  removeCurrentLine(line, skipBuffer) {
+    if (this.editorEmpty()) {
+      return;
+    }
+
+    if (!line) {
+      var line = ~~(this.cursorPos/this.cellsInRow);
+    }
 
     var pos = line * this.cellsInRow; // next row position
 
     // Hide cursor before copy part of screen
     this.drawCursor(false);
 
+    if (!skipBuffer) {
+      this.actionsBuffer.add({
+        type: 'deleteLine',
+        line: line,
+        chars: this.getLineChars(line),
+        cur: pos
+      });
+    }
 
     // Remove line chars
     this.chars.splice(pos, this.cellsInRow);
@@ -624,12 +692,10 @@ class Box256 {
 
 
     // Draw new line at the end
-    this.redrawLine(this.linesCount - 1);
+    this.updateLine(this.linesCount - 1);
 
     // update cursor
     this.moveCursorToPos(pos);
-
-
   }
 
   insertChar(char, type) {
@@ -644,7 +710,7 @@ class Box256 {
           valid = true;
         } else if (char == '0' && rowPos > 0 && rowPos % 3 == 0) {
           // Clear ref symbol and move righr
-          this.setChar(null);
+          this.setChar('0');
           valid = true;
         }
 
@@ -676,23 +742,40 @@ class Box256 {
     }
   }
 
-  setChar(char, color) {
-    var pos = this.cursorPos;
-    this.putChar(pos, char, color)
-
+  setCharToPos(pos, char) {
+    this.putChar(pos, char)
     this.updateByte(~~(pos/3));
   }
 
-  putChar(pos, char, color) {
-    color = color || 'white';
-    this.chars[pos] = char ? char : null;
-    this.colorMap[pos] = char ? color : null;
+  setChar(char) {
+    var pos = this.cursorPos;
+    this.saveChar(pos, char);
+    this.setCharToPos(pos, char);
+  }
+
+  saveChar(pos, char, saveCursor) {
+    if (char !== this.chars[pos]) {
+      var cur = saveCursor || pos;
+      var prevCur = saveCursor ? saveCursor - 1 : cur + 1;
+      this.actionsBuffer.add({
+        pos: pos,
+        type: 'char',
+        oldVal: this.chars[pos],
+        newVal: char,
+        cur: cur,
+        prevCur: prevCur
+      });
+    }
   }
 
 
+  putChar(pos, char) {
+    this.chars[pos] = char;
+  }
+
   drawDataChar(pos) {
     var cell = this.getCellPosition(pos);
-    var char = this.chars[pos] || '0';
+    var char = this.chars[pos];
     var color = this.colorMap[pos] || 'grey';
     this.view.drawText(char, cell, color, this.bgColor);
   }
@@ -721,7 +804,7 @@ class Box256 {
     for (let i = 0; i < 12; i++) {
       const pos = start + i;
       const cell = this.getCellPosition(pos);
-      const char = this.chars[pos] || '0';
+      const char = this.chars[pos];
       this.view.drawText(char, cell, 'black', '#fff');
 
       // Fill space between columns
@@ -761,13 +844,26 @@ class Box256 {
     return this.chars.slice(s, s + this.cellsInRow);
   }
 
-
   updateByte(byteIndex) {
     var line = this.getByteLineIndex(byteIndex);
+    this.updateLine(line);
+  }
+
+  updateLine(line) {
     this.updateLineColors(line);
     this.drawCharsLine(line);
     // Put correct opcodes to memory on according line
     this.memoryBox.updateMemoryLine(line, this.getLineBytes(line));
+    this.affectedLines();
+  }
+
+  affectedLines(line) {
+    this.memCount = this.memoryBox.count();
+    this.view.drawAllocated(this.memCount, false);
+  }
+
+  getUsedLines() {
+    return this.memCount;
   }
 
   getLineBytes(line) {
@@ -788,6 +884,14 @@ class Box256 {
     return ~~(byteIndex / 4);
   }
 
+  editorEmpty() {
+    for (var i=0; i< this.chars.length; i++) {
+      if (this.chars[i] !== '0') {
+        return false;
+      }
+    }
+    return true;
+  }
 
   onHoverCell() {
     var index = this.cellInMemory(this.hoverCell);
@@ -835,6 +939,7 @@ class Box256 {
     if (pos > -1) {
       this.moveCursorToPos(pos)
     } else if (this._hoveredButton && !this._hoveredButton.disabled) {
+      this.buttonClicked()
       this._hoveredButton.handler();
     }
   }
@@ -866,6 +971,7 @@ class Box256 {
     this.memoryBox.drawMemoryIndex(index, true);
   }
 
+
   attachListeners() {
 
     this.wrapper.addEventListener('mouseenter', (e) => {
@@ -890,6 +996,20 @@ class Box256 {
     window.addEventListener('keydown',function(e) {
       const code = e.keyCode;
 
+      if (code == 91 || e.key == "Meta" || code == 17 || code == 16) {
+        return;
+      }
+
+      if (code == 90 && (e.ctrlKey || e.metaKey) ) {
+        this.actionsBuffer.undo();
+        return;
+      }
+
+      if (code == 89 && (e.ctrlKey || e.metaKey) ) {
+        this.actionsBuffer.redo();
+        return;
+      }
+
       if (code == 86 && (e.ctrlKey || e.metaKey) ) {
         this.pasteSelection();
         return;
@@ -898,10 +1018,6 @@ class Box256 {
       if (this.activeSelection.length) {
         if (code == 67 && (e.ctrlKey || e.metaKey) ) {
           this.copySelection();
-          return;
-        }
-
-        if (code == 91 || e.key == "Meta" ) {
           return;
         }
 
@@ -1019,11 +1135,7 @@ class Box256 {
       this.putChar(pos + i, char);
     }
 
-    this.updateLineColors(lineIdx);
-
-    this.drawCharsLine(lineIdx);
-
-    this.memoryBox.updateMemoryLine(lineIdx, this.getLineBytes(lineIdx));
+    this.updateLine(lineIdx);
   }
 
   updateLineColors(lineIdx) {
@@ -1136,8 +1248,12 @@ class Box256 {
   }
 
   loadLevel() {
+    if (this.running) {
+      this.stop()
+    }
     this.currentLevel = this.levels[this.level];
     this.drawLevel();
+    this.screen.resetScreen();
   }
 
   drawLevel() {

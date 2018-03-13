@@ -20,7 +20,8 @@ class BoxMemory {
 
     this.lockedValues = {};
 
-    this.takenLines = 0;
+    this.lines = new Array(32).fill(0)
+    this.usedLines = 0;
 
   }
 
@@ -74,7 +75,15 @@ class BoxMemory {
   }
 
   count() {
-    return 11;
+    return this.usedLines;
+  }
+
+  updateUsedLines() {
+    var count = 0;
+    for (var i = 0; i < this.lines.length; i++) {
+      count += this.lines[i];
+    }
+    this.usedLines = count;
   }
 
   updateMemoryLine(line, bytes) {
@@ -115,7 +124,6 @@ class BoxMemory {
 
   drawMemoryLine(line, error, invert) {
     const index = line * 4;
-
     let bg;
     let forceColor;
     if (error) {
@@ -148,6 +156,13 @@ class BoxMemory {
     for (let i = 0; i < 4; i++) {
       let color = forceColor ? forceColor : colors[i];
       this.drawMemoryByte(index + i, bytes[i], color, bg);
+    }
+
+    const used = bytes.join('') === '00000000' ? 0 : 1;
+    var v = this.lines[line];
+    if (this.lines !== used) {
+      this.lines[line] = used;
+      this.updateUsedLines();
     }
   }
 
@@ -197,6 +212,11 @@ class BoxMemory {
     Array.prototype.splice.apply(this.memory._memory, newLineArgs);
     // Trim array
     this.memory._memory.splice(256);
+
+    this.lines.splice(line, 0, 0);
+    this.lines.pop();
+    this.updateUsedLines();
+
   }
 
   deleteMemoryLine(line) {
@@ -205,6 +225,10 @@ class BoxMemory {
     // PUsh new line chars
     var newLine = new Array(4).fill('00');
     Array.prototype.push.apply(this.memory._memory, newLine);
+
+    this.lines.splice(line, 1);
+    this.lines.push(0);
+    this.updateUsedLines();
   }
 
 }

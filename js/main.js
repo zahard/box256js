@@ -2,6 +2,7 @@ var resources = [
     'Layer',
     'KeyboardManager',
     'levels',
+    'actionsBuffer',
     'memory',
     'BoxMemory',
     'ViewRender',
