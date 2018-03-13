@@ -216,7 +216,6 @@ class BoxMemory {
     this.lines.splice(line, 0, 0);
     this.lines.pop();
     this.updateUsedLines();
-
   }
 
   deleteMemoryLine(line) {

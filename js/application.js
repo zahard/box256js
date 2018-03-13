@@ -628,10 +628,20 @@ class Box256 {
     // Shift memory
     this.memoryBox.insertMemoryLine(nextLine);
 
+    var hoverMemory = -1;
+    if (this.hoveredMemCell > -1) {
+      hoverMemory = this.hoveredMemCell;
+      this.hoverMemory(-1);
+    }
+
     this.view.moveLines(this.getCellPosition(pos), this.linesCount - nextLine, 24, 1);
 
     // Update new line
     this.updateLine(nextLine);
+
+    if (hoverMemory) {
+      this.hoverMemory(hoverMemory);
+    }
 
     // Put cursor on new line
     this.moveCursorToPos(pos);
@@ -688,11 +698,22 @@ class Box256 {
 
     var nextLine = line + 1;
     var cell = this.getCellPosition(nextLine * this.cellsInRow);
-    this.view.moveLines(cell, this.linesCount - nextLine, 24, -1);
 
+
+    var hoverMemory = -1;
+    if (this.hoveredMemCell > -1) {
+      hoverMemory = this.hoveredMemCell;
+      this.hoverMemory(-1);
+    }
+
+    this.view.moveLines(cell, this.linesCount - nextLine, 24, -1);
 
     // Draw new line at the end
     this.updateLine(this.linesCount - 1);
+
+    if (hoverMemory) {
+      this.hoverMemory(hoverMemory);
+    }
 
     // update cursor
     this.moveCursorToPos(pos);
