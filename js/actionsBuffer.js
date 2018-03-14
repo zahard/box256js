@@ -1,15 +1,15 @@
 
 class ActionsBuffer {
 
-  constructor(App) {
-    this.app = App;
+  constructor(editor) {
+    this.editor = editor;
+
     this.actionsBuffer = [];
     this.bufferSize = 200;
-
     this.actionOffset = 0;
   }
 
-  add (action) {
+  add(action) {
     if (this.actionOffset) {
       var actionPos = this.actionsBuffer.length - this.actionOffset;
       this.actionsBuffer = this.actionsBuffer.slice(0, actionPos);
@@ -30,22 +30,23 @@ class ActionsBuffer {
 
     switch (last.type) {
       case 'char':
-        this.app.setCharToPos(last.pos, last.newVal);
+        this.editor.setChar(last.newVal, last.pos);
+        this.editor.updateCharLine(last.pos);
         break;
       case 'insertLine':
-        this.app.insertNewLine(true, last.line, null, true);
+        this.editor.insertLine(true, last.line, null, true);
         break;
       case 'deleteLine':
-        this.app.removeCurrentLine(last.line, true);
+        this.editor.deleteLine(last.line, true);
         break;
-       case 'paste':
-        for (var i =0; i< last.newVal.length; i++) {
-          this.app.putLineChars(last.newVal[i], last.line + i);
+      case 'paste':
+        for (var i = 0; i< last.newVal.length; i++) {
+          this.editor.setLineChars(last.line + i, last.newVal[i]);
         }
         break;
     }
 
-    this.app.moveCursorToPos(last.prevCur || last.cur);
+    this.editor.moveCursorToPos(last.prevCur || last.cur);
 
   }
 
@@ -58,23 +59,24 @@ class ActionsBuffer {
 
     switch (last.type) {
       case 'char':
-        this.app.setCharToPos(last.pos, last.oldVal);
+        this.editor.setChar(last.oldVal, last.pos);
+        this.editor.updateCharLine(last.pos);
         break;
       case 'insertLine':
-        this.app.removeCurrentLine(last.line, true);
-        this.app.putLineChars(last.chars, this.app.linesCount - 1);
+        this.editor.deleteLine(last.line, true);
+        this.editor.setLineChars(last.chars, this.editor.linesCount - 1);
         break;
       case 'deleteLine':
-        this.app.insertNewLine(true, last.line, last.chars.slice(), true);
+        this.editor.insertLine(true, last.line, last.chars.slice(), true);
         break;
       case 'paste':
-        for (var i =0; i< last.oldVal.length; i++) {
-          this.app.putLineChars(last.oldVal[i], last.line + i);
+        for (var i = 0; i< last.oldVal.length; i++) {
+          this.editor.setLineChars(last.line + i, last.oldVal[i]);
         }
         break;
     }
 
-    this.app.moveCursorToPos(last.cur);
+    this.editor.moveCursorToPos(last.cur);
     this.actionOffset++;
   }
 

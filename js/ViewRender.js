@@ -12,9 +12,6 @@ class ViewRender {
 
     this.bgColor = this.pallete.black;
 
-    // Layer to put data
-    this.activeLayer = null;
-
 
     var layerFactory = new LayersFactory({
         size: [this.width, this.height],
@@ -23,13 +20,12 @@ class ViewRender {
 
 
     this.layers = {
-      back: layerFactory.create('back', 1),
-      data: layerFactory.create('data', 2),
-      editor: layerFactory.create('editor', 3),
+      back: layerFactory.create('back', 1)
     }
+    // Layer to put data
+    this.activeLayer = this.layers.back;
 
     this.loadImages();
-
   }
 
   onReady(fn) {
@@ -38,10 +34,7 @@ class ViewRender {
 
   // Fill background
   drawBackground() {
-    this.activeLayer = this.layers.back;
     this.activeLayer.fillAll(this.bgColor);
-
-    // this.drawScreen();
   }
 
   loadImages() {
@@ -51,8 +44,6 @@ class ViewRender {
       this.compileFonts();
 
       this.drawBackground();
-
-      this.activeLayer = this.layers.data;
 
       // View Ready
       if (this._onReadCallback) {
@@ -111,50 +102,6 @@ class ViewRender {
     return layer.cnv;
   }
 
-  drawTemplate() {
-    this.activeLayer = this.layers.back;
-    var lines = []
-    for (var i=0;i<this.lines*4;i++) {
-      if (i%4 == 0) {
-        var n = i.toString(16).toUpperCase();
-        if(i<16) {
-          n = '0' + n;
-        }
-        lines.push(n);
-      }
-    }
-
-    var y = 1;
-
-    this._text('MEMORY', 21, y, 'green');
-
-
-    this._text('<<', 5 , y, 'white', 'grey');
-
-    this._text('[00-7F]', 8 , y, 'silver');
-
-    this._text('>>', 16 , y, 'white');
-
-    y = 3;
-
-    this._text(lines.join("\n"), 1, y, 'blue');
-
-    this.activeLayer = this.layers.data;
-
-    var nulls = []
-    for (var i=0;i<this.lines;i++) {
-      nulls.push('000 000 000 000')
-    }
-    this._text(nulls.join("\n"), 4, y, 'grey');
-
-    var memory = []
-    for (var i=0;i<this.lines;i++) {
-      memory.push('00000000')
-    }
-    this._text(memory.join("\n"), 20 , y, 'green');
-
-  }
-
   drawButton(b) {
     var color = b.active ? 'black' : 'white'
     var color_sec = b.active ? 'black': 'grey'
@@ -194,9 +141,13 @@ class ViewRender {
     this.drawText(text,{x: x, y: y}, color, bgcolor);
   }
 
-  drawChar(char, x, y, bgcolor) {
+  setFont(color) {
+    this.font = this.fontColors[color];
+  }
+
+  drawChar(char, x, y, bgcolor, charSize) {
     const cxt = this.activeLayer;
-    var size = this.size;
+    var size = charSize || this.size;
 
     var fontSize = 8;
     var code = char.charCodeAt();
@@ -263,55 +214,6 @@ class ViewRender {
       x, y + direction * size, w, h - (direction * size));
   }
 
-  drawScreen() {
-    var cxt = this.activeLayer;
-    cxt.save()
-    var scrOffset = {
-      y:3, x: 30
-    }
-    var size = this.size;
-    var x = scrOffset.x * size;
-    var y = scrOffset.y * size;
-
-    var cell = 16;
-    var count = 16;
-    var num;
-
-    this.drawGrid(x,y, count, cell);
-
-
-    this.drawGrid(x,y + 16*cell, count, cell);
-
-    var prevS = this.size;
-    this.size = this.size / 2;
-    this.font = this.fontColors['white'];
-    var xOff = x - 10;
-    var yOff = y - 10;
-    for (var i = 0; i < count; i++) {
-      num = i.toString(16).toUpperCase();
-      this.drawChar(num, xOff, y + 4 + i * 16);
-      this.drawChar(num, x + 4 + i * 16, yOff);
-    }
-
-    cxt.restore();
-    this.size = prevS;
-  }
-
-  drawGrid(x, y, count, cell) {
-    var cxt = this.activeLayer;
-    cxt.set('fillStyle', '#555');
-    for (var i = 0; i <= count; i++) {
-      if (i > 0 && i < count) {
-        for (var j = 0; j < 64; j+=1) {
-          cxt.fillRect(x  + j*4 , y + (i * cell), 2, 1);
-          cxt.fillRect(x + (i * cell), y  + j*4 , 1, 2);
-        }
-      } else {
-        cxt.fillRect(x + (i * cell), y, 1, 256);
-        cxt.fillRect(x, y + (i * cell) , 256, 1);
-      }
-    }
-  }
 
   drawAllocated(count, active) {
     var offset = {x:19, y:38}

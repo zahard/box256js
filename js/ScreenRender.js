@@ -1,17 +1,80 @@
 
 class ScreenRender {
 
-  constructor(offset) {
+  constructor(view, offset) {
+    this.view = view;
+    this.offset = offset;
 
-    this.scrOffset = offset;
+    // Application grid size for offsets
+    this.gridSize = 16;
 
+    // Pixel/ cell size
     this.pixelSize = 16;
+
+    // 16 x 16 screen
+    this.screenSize = 16;
 
     this.resetPixels();
   }
 
+  // Draw grid
+  draw(putNums) {
+    const cxt = this.view.activeLayer;
+    cxt.save();
+
+    const x = this.offset.x * this.gridSize;
+    const y = this.offset.y * this.gridSize;
+    this.drawGrid(x,y, this.screenSize, this.pixelSize);
+
+    if (putNums) {
+      this.view.setFont('white');
+      const border = 2;
+      const fontSize = this.pixelSize / 2;
+      const margin = (this.pixelSize - fontSize) / 2
+      const xOff = x - (this.view.size + border);
+      const yOff = y - (this.view.size + border);
+
+      for (var i = 0; i < this.screenSize; i++) {
+        let num = i.toString(16).toUpperCase();
+        let dx = x + i * this.pixelSize + margin;
+        let dy = y + i * this.pixelSize + margin;
+        // Verical line
+        this.view.drawChar(num, xOff, dy, null, fontSize);
+        // Horizontal line
+        this.view.drawChar(num, dx, yOff, null, fontSize);
+      }
+    }
+
+    cxt.restore();
+  }
+
+  drawGrid(x, y, count, cellSize) {
+    var cxt = this.view.activeLayer;
+    cxt.save();
+    cxt.set('fillStyle', '#555');
+
+    for (var i = 0; i <= count; i++) {
+
+      if (i > 0 && i < count) {
+        var len = count * cellSize;
+
+        for (var j = 0; j < len/4; j+=1) {
+          cxt.fillRect(x  + j*4 , y + (i * cellSize), 2, 1);
+          cxt.fillRect(x + (i * cellSize), y  + j*4 , 1, 2);
+        }
+
+      } else {
+        // Straight lines
+        cxt.fillRect(x + (i * cellSize), y, 1, count * cellSize);
+        cxt.fillRect(x, y + (i * cellSize) , count * cellSize, 1);
+      }
+    }
+    cxt.restore();
+  }
+
+
   resetPixels() {
-    this.pixels = new Array(256).fill('0');
+    this.pixels = new Array(this.screenSize*this.screenSize).fill('0');
   }
 
   getPixels() {
@@ -23,11 +86,11 @@ class ScreenRender {
       colorIndex = colorIndex & 16;
     }
 
-    var cxt = this.layer;
+    var cxt = this.view.activeLayer;
     cxt.save()
 
-    var sx = this.scrOffset.x + x * this.pixelSize + 1;
-    var sy = this.scrOffset.y + y * this.pixelSize + 1;
+    var sx = this.offset.x * this.gridSize + x * this.pixelSize + 1;
+    var sy = this.offset.y * this.gridSize + y * this.pixelSize + 1;
     var color = this.getColor(colorIndex);
     cxt.set('fillStyle', color);
     cxt.fillRect(sx, sy, this.pixelSize - 1, this.pixelSize - 1);

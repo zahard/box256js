@@ -11,7 +11,7 @@ class BoxMemory {
     this.cmdManager = cmdManager;
 
     // Memory block offset on screen (in basic cells)
-    this.memCellOffset = {x: 20, y: 3};
+    this.offset = {x: 20, y: 3};
 
     // 256 bytes memory
     this.memory = new Memory(256);
@@ -20,7 +20,9 @@ class BoxMemory {
 
     this.lockedValues = {};
 
-    this.lines = new Array(32).fill(0)
+    this.linesCount = 32;
+
+    this.lines = new Array(this.linesCount).fill(0)
     this.usedLines = 0;
 
   }
@@ -86,7 +88,9 @@ class BoxMemory {
     this.usedLines = count;
   }
 
-  updateMemoryLine(line, bytes) {
+  updateMemoryLine(line, chars) {
+    var bytes = chars.match(/.{3}/g);
+
     // First check COMMAND byte
     var cmd = bytes[0];
     // Default error state
@@ -175,8 +179,8 @@ class BoxMemory {
     if (val.length == 1) val = '0' + val;
 
     var area = {
-      x: this.memCellOffset.x + (index % 4) * 2,
-      y: this.memCellOffset.y + (~~(index / 4)),
+      x: this.offset.x + (index % 4) * 2,
+      y: this.offset.y + (~~(index / 4)),
       w: 2,
       h: 1
     };
@@ -190,8 +194,8 @@ class BoxMemory {
     var byteIndex = index % 4;
     var line = ~~(index / 4);
     this.view.drawText(value, {
-      x: this.memCellOffset.x + byteIndex * 2,
-      y: this.memCellOffset.y + line,
+      x: this.offset.x + byteIndex * 2,
+      y: this.offset.y + line,
     }, color, bg);
   }
 
@@ -230,4 +234,14 @@ class BoxMemory {
     this.updateUsedLines();
   }
 
+  /**
+   * Draw template
+   */
+  draw() {
+    const memory = [];
+    for (var i = 0; i < this.linesCount; i++) {
+      memory.push('00000000')
+    }
+    this.view.drawText(memory.join("\n"), this.offset, 'green');
+  }
 }

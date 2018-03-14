@@ -5,11 +5,12 @@ var resources = [
     'actionsBuffer',
     'memory',
     'codeEditor',
-    'BoxMemory',
+    'boxMemory',
     'ViewRender',
     'ScreenRender',
+    'commandList',
     'CommandManager',
-    'application'
+    'box256'
 ];
 
 for (var i = 0; i < resources.length; i++)
