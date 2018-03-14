@@ -96,7 +96,7 @@ class ScreenRender {
     cxt.fillRect(sx, sy, this.pixelSize - 1, this.pixelSize - 1);
     cxt.restore();
     // Set pixel value
-    this.pixels[x + y * 16] = colorIndex.toString(16).toUpperCase();
+    this.pixels[x + y * this.screenSize] = colorIndex.toString(16).toUpperCase();
   }
 
   resetScreen() {

@@ -89,6 +89,7 @@ class BoxMemory {
   }
 
   updateMemoryLine(line, chars) {
+    console.log(chars)
     var bytes = chars.match(/.{3}/g);
 
     // First check COMMAND byte

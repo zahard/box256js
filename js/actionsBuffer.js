@@ -64,10 +64,10 @@ class ActionsBuffer {
         break;
       case 'insertLine':
         this.editor.deleteLine(last.line, true);
-        this.editor.setLineChars(last.chars, this.editor.linesCount - 1);
+        this.editor.setLineChars(this.editor.linesCount - 1, last.chars);
         break;
       case 'deleteLine':
-        this.editor.insertLine(true, last.line, last.chars.slice(), true);
+        this.editor.insertLine(true, last.line, last.chars.split(''), true);
         break;
       case 'paste':
         for (var i = 0; i< last.oldVal.length; i++) {

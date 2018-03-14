@@ -569,8 +569,8 @@ class CodeEditor {
     if (oldChars !== newChars) {
       this.actionsBuffer.add({
         type: 'paste',
-        line: line,
-        cur: line * this.cellsInRow,
+        line: startLine,
+        cur: startLine * this.cellsInRow,
         oldVal: lines,
         newVal: this.clipboard.slice()
       });
