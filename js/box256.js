@@ -53,8 +53,6 @@ class Box256 {
     }, 500);
 
 
-    this.cmdManager = new CommandManager(this.screen);
-
     this.view = new ViewRender({
       wrapper: this.wrapper,
       height: this.height,
@@ -76,10 +74,22 @@ class Box256 {
       x: 4, y: 3
     }, this.pallete);
 
-
     this.editor.on('lineUpdate', (line, chars) => {
-      this.onUpdateLine(line, chars)
+      this.onUpdateLine(line, chars);
     });
+
+    this.editor.on('lineShift', (line, count, dir) => {
+      this.onLineShift(line, count, dir);
+    });
+
+    this.memoryBox = new BoxMemory(this.view, {
+      x: 20, y: 3
+    });
+
+
+    this.commandRunner = new CommandRunner(this.screen, this.memoryBox);
+    this.commandList = new CommandList();
+    this.compiler = new CommandCompiler();
 
     this.view.onReady(() => {
 
@@ -91,11 +101,7 @@ class Box256 {
 
       this.targetScreen.draw();
 
-
-
-      this.buttons = [];
-
-      this.stopButton = this.addButton(6, 36, 'STOP', () => {
+      this.addButton(6, 36, 'STOP', () => {
         this.stop();
       }, true);
 
@@ -103,11 +109,11 @@ class Box256 {
         this.step();
       });
 
-      this.playButton = this.addButton(20, 36, 'PLAY', () => {
+      this.addButton(20, 36, 'PLAY', () => {
         this.run();
       });
 
-      this.prevLevelButton = this.addButton(30, 36, 'PREV', () => {
+      this.addButton(30, 36, 'PREV', () => {
         this.level--;
         if (this.level < 0) {
           this.level = this.levels.length - 1;
@@ -115,7 +121,7 @@ class Box256 {
         this.loadLevel();
       });
 
-      this.nextLevelButton = this.addButton(40, 36, 'NEXT', () => {
+      this.addButton(40, 36, 'NEXT', () => {
         this.level++;
         if (this.level >= this.levels.length) {
           this.level = 0;
@@ -132,27 +138,30 @@ class Box256 {
 
     this.memCount = 0;
 
-    this.memoryBox = new BoxMemory(this.view, this.cmdManager);
-
-    this.cmdManager.setMemory(this.memoryBox);
-
     this.levels = getLevels();
 
   }
 
+  getButton(text) {
+    for (var i = 0; i < this.buttons.length; i++) {
+      if (this.buttons[i].text === text) {
+        return this.buttons[i];
+      }
+    }
+  }
+
   addButton(x, y, text, callback, disabled) {
-    var w = text.length + 2;
-    var button = {
-      handler: callback,
-      disabled: disabled || false,
+    if (!this.buttons) {
+      this.buttons = [];
+    }
+
+    this.buttons.push(new Button(this.view, {
       x: x,
       y: y,
-      w: w,
-      text: text
-    };
-    this.buttons.push(button);
-    this.view.drawButton(button);
-    return button;
+      text: text,
+      handler: callback,
+      disabled: disabled || false
+    }));
   }
 
   init() {
@@ -165,19 +174,14 @@ class Box256 {
     if (!this.running) {
       this.prepareToRun();
     }
+    this.getButton('PLAY').disable();
     this.step(true);
-
-    this.playButton.disabled = true;
-    this.view.drawButton(this.playButton);
   }
 
   prepareToRun() {
 
     // Stop cursor blicking
-    this.resetCursorInterval();
-
-    // Remove cursor
-    this.drawCursor(false);
+    this.editor.pause();
 
     // Save copy of memory to restore state
     // before run
@@ -186,10 +190,11 @@ class Box256 {
     // Clear previous step timeout if exists
     clearTimeout(this.stepTimeout);
 
+    this.screen.resetScreen();
+
     // Lets count cycles
     this.cycles = 0;
-
-    this.screen.resetScreen();
+    this.view.drawCycles(this.cycles, true);
 
     // Draw active memory
     this.view.drawAllocated(this.getUsedLines(), true)
@@ -199,8 +204,7 @@ class Box256 {
 
     this.running = true;
 
-    this.stopButton.disabled = false;
-    this.view.drawButton(this.stopButton);
+    this.getButton('STOP').enable();
 
     this.drawActiveLines(this.threads);
   }
@@ -208,72 +212,70 @@ class Box256 {
   step(async) {
     if (!this.running) {
       this.prepareToRun();
+      return;
+    }
+
+    if (async) {
+      this.stepTimeout = setTimeout(() => {
+        this.step(true);
+      }, this.stepDelay);
     } else {
-      if (!async) {
-        clearTimeout(this.stepTimeout);
-        this.playButton.disabled = false;
-        this.view.drawButton(this.playButton);
+      clearTimeout(this.stepTimeout);
+      this.getButton('PLAY').enable();
+    }
 
-      } else {
-        this.stepTimeout = setTimeout(() => {
-          this.step(true);
-        }, this.stepDelay);
+    // Count cycles
+    this.cycles++;
+    this.view.drawCycles(this.cycles, true);
+
+    // Deactivate current line
+    this.drawUnactiveLines(this.threads);
+
+    this.memoryBox.setReadLock();
+
+    // Level ready on this step
+    var completed = false;
+
+    for (var thx = 0; thx < this.threads.length; thx++) {
+      // Execute line command
+
+      let next = this.runInstruction(this.threads[thx]);
+
+      // If level ready
+      if (next == -1) {
+        completed = true;
+        // Force to next line
+        next = this.threads[thx] + 1;
       }
 
-      // Count cycles
-      this.cycles++;
-      this.view.drawCycles(this.cycles);
-
-      // Deactivate current line
-      this.drawUnactiveLines(this.threads);
-
-      this.memoryBox.setReadLock();
-
-      // Level ready on this step
-      var completed = false;
-
-      for (var thx = 0; thx < this.threads.length; thx++) {
-        // Execute line command
-
-        let next = this.runInstruction(this.threads[thx]);
-
-        // If level ready
-        if (next == -1) {
-          completed = true;
-          // Force to next line
-          next = this.threads[thx] + 1;
-        }
-
-        // Check if we have more lines to run
-        if (next >= this.linesCount) {
-          next = 0;
-        }
-
-        // Update curent line index
-        this.threads[thx] = next;
+      // Check if we have more lines to run
+      if (next >= this.linesCount) {
+        next = 0;
       }
 
-      this.memoryBox.releaseReadLock();
+      // Update curent line index
+      this.threads[thx] = next;
+    }
+
+    this.memoryBox.releaseReadLock();
 
 
-      if (this.createdThread != -1) {
-        // Push new thread before next step
-        this.threads.push(this.createdThread);
-        this.createdThread = -1;
-      }
+    if (this.createdThread != -1) {
+      // Push new thread before next step
+      this.threads.push(this.createdThread);
+      this.createdThread = -1;
+    }
 
-      // Hightlight next line(s)
-      this.drawActiveLines(this.threads);
+    // Hightlight next line(s)
+    this.drawActiveLines(this.threads);
 
-      if (completed) {
-        this.onLevelCompleted();
-      }
-
+    if (completed) {
+      this.onLevelCompleted();
     }
 
   }
 
-  stop(completed) {
+  stop() {
     if (!this.running) return;
 
     // stop timeout
@@ -284,7 +286,6 @@ class Box256 {
 
     // Reset step
     this.threads = [];
-
 
     this.cycles = 0;
     this.view.drawCycles(this.cycles);
@@ -299,25 +300,19 @@ class Box256 {
     this.view.drawAllocated(this.getUsedLines(), false)
 
     // Run cursor
-    this.runCursor(false);
+    this.editor.start();
+
+    this.getButton('STOP').disable();
+    this.getButton('PLAY').enable();
 
     this.running = false;
-
-    this.stopButton.disabled = true;
-    this.view.drawButton(this.stopButton);
-
-    this.playButton.disabled = false;
-    this.view.drawButton(this.playButton);
   }
 
   runInstruction(line) {
-    var idx = line * 4;
-    var cmd = this.memoryBox.getByte(idx);
-    var a = this.memoryBox.getByte(idx+1);
-    var b = this.memoryBox.getByte(idx+2);
-    var c = this.memoryBox.getByte(idx+3);
+    var instruction = this.memoryBox.getLineBytes(line);
+    var cmd = instruction[0];
 
-    var results = this.cmdManager.exec(cmd, [a,b,c]);
+    var results = this.commandRunner.exec(instruction);
 
     // By default run next line
     var nextLine = line + 1;
@@ -347,7 +342,7 @@ class Box256 {
       nextLine = line + results.jumpOffset;
       if (nextLine > this.linesCount) {
         nextLine = nextLine % this.linesCount;
-      } else if(nextLine < 0) {
+      } else if (nextLine < 0) {
         nextLine = this.linesCount - nextLine;
       }
     }
@@ -366,26 +361,10 @@ class Box256 {
     return line;
   }
 
-
-  cellInEditor(cell) {
-    var line = cell.y - this.cellsOffset.y;
-    var rowPos =  cell.x - this.cellsOffset.x;
-    if (line > -1 && line < this.linesCount
-        && rowPos > -1 && rowPos < this.cellsInRow + 3)
-    {
-      rowPos = rowPos - ~~(rowPos / 4);
-      var pos = line * this.cellsInRow + rowPos;
-      return pos;
-    }
-    return -1;
-  }
-
-
   onLevelCompleted() {
     // Pause execusion
     clearTimeout(this.stepTimeout);
-    this.playButton.disabled = false;
-    this.view.drawButton(this.playButton);
+    this.getButton('PLAY').enable();
 
     var colors = ['lightgreen', 'green'];
     var index = 0;
@@ -396,7 +375,7 @@ class Box256 {
     }, 500);
   }
 
-  buttonClicked() {
+  beforeButtonClick() {
     if (this.levelDoneInterval) {
       clearInterval(this.levelDoneInterval);
       this.levelDoneInterval = null;
@@ -404,8 +383,8 @@ class Box256 {
     }
   }
 
-  isLevelReady(cmd) {
-    var cmdName = this.cmdManager.getCommandName(cmd);
+  isLevelReady(cmdCode) {
+    var cmdName = this.commandList.getCommandName(cmdCode);
     if (cmdName == 'PIX') {
       var pixels = this.screen.getPixels()
       var level = this.getCurrentLevel();
@@ -417,13 +396,30 @@ class Box256 {
     return false;
   }
 
+  drawUnactiveLines(lines) {
+    lines.forEach(line => {
+      this.editor.drawSelectionLine(line, false);
+      this.memoryBox.drawMemoryLine(line, false);
+    });
+  }
 
-
+  drawActiveLines(lines) {
+    lines.forEach(line => {
+      this.editor.drawSelectionLine(line, true);
+      this.memoryBox.drawMemoryLine(line, true);
+    });
+  }
 
   onUpdateLine(line, chars) {
     // Put correct opcodes to memory on according line
-    this.memoryBox.updateMemoryLine(line, chars);
+    const res = this.compiler.compile(chars);
+    this.memoryBox.updateMemoryLine(line, res.opcode, res.valid);
+
     this.affectedLines();
+  }
+
+  onLineShift(line, dir) {
+    this.memoryBox.shiftLines(line, dir);
   }
 
   affectedLines(line) {
@@ -437,37 +433,37 @@ class Box256 {
 
 
   onHoverCell() {
-    return
+
+    /*
     var index = this.cellInMemory(this.hoverCell);
     if (index > -1) {
       this.hoverMemory(index);
     } else if (this.hoveredMemCell != -1) {
       this.hoverMemory(-1);
     }
+    */
 
-    var button = this.cellInButton(this.hoverCell);
+    var button = this.findButton(this.hoverCell);
     if (button) {
-      if (this._hoveredButton !== button) {
+      if (button !== this._hoveredButton) {
         if (this._hoveredButton) {
-          this._hoveredButton.active = false;
-          this.view.drawButton(this._hoveredButton);
+          this._hoveredButton.blur();
         }
-        button.active = true;
         this._hoveredButton = button;
-        this.view.drawButton(button);
+        button.focus();
       }
     } else if (this._hoveredButton) {
-      this._hoveredButton.active = false;
-      this.view.drawButton(this._hoveredButton);
+      this._hoveredButton.blur();
       this._hoveredButton = null;
     }
   }
 
-  cellInButton(cell) {
+  findButton(cell) {
+    // Only those lines has buttons
     if (cell.y != 36 && cell.y != 1) return;
-    var b;
-    for (var i =0; i < this.buttons.length; i++) {
-      b = this.buttons[i];
+    for (var i = 0; i < this.buttons.length; i++) {
+      let b = this.buttons[i];
+      if (b.disabled) continue;
       if (cell.x < b.x || cell.x >= b.x + b.w) {
         continue;
       }
@@ -475,18 +471,20 @@ class Box256 {
         return b;
       }
     }
-
   }
 
   onClick() {
-    return;
-    var pos = this.running ? -1 : this.cellInEditor(this.hoverCell);
-    if (pos > -1) {
-      this.moveCursorToPos(pos)
-    } else if (this._hoveredButton && !this._hoveredButton.disabled) {
-      this.buttonClicked()
-      this._hoveredButton.handler();
+    if (this._hoveredButton) {
+      this.beforeButtonClick()
+      this._hoveredButton.click();
+      return;
     }
+
+    if (this.running) {
+      return;
+    }
+
+    this.editor.onClick(this.hoverCell);
   }
 
   cellInMemory(cell) {
@@ -525,7 +523,7 @@ class Box256 {
         y: ~~(e.offsetY / this.gridSize)
       };
       this.onHoverCell(this.hoverCell);
-    })
+    });
 
     this.wrapper.addEventListener('click',(e) => {
       this.onClick();

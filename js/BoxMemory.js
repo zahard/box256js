@@ -1,17 +1,14 @@
 
 class BoxMemory {
 
-  constructor(viewRender, cmdManager) {
+  constructor(view, offset) {
     // For redraw memory cells
-    this.view = viewRender;
-
-    this.hoverColor = 'grey';
-
-    // Commands validator
-    this.cmdManager = cmdManager;
+    this.view = view;
 
     // Memory block offset on screen (in basic cells)
-    this.offset = {x: 20, y: 3};
+    this.offset = offset;
+
+    this.hoverColor = 'grey';
 
     // 256 bytes memory
     this.memory = new Memory(256);
@@ -25,10 +22,8 @@ class BoxMemory {
     this.lines = new Array(this.linesCount).fill(0)
     this.usedLines = 0;
 
-  }
+    this.validLine = new Array(this.linesCount).fill(true);
 
-  validateCommand(bytes) {
-    return this.cmdManager.validate(bytes[0], bytes[1], bytes[2],bytes[3]);
   }
 
   getByte(index) {
@@ -69,15 +64,22 @@ class BoxMemory {
     this._freezedMemory = null;
 
     // Draw all lines
-    //var linesCount = this.memory.len / 4;
-    var linesCount = 32;
-    for (var i = 0; i < linesCount; i++) {
+    for (var i = 0; i < this.linesCount; i++) {
       this.drawMemoryLine(i);
     }
   }
 
   count() {
     return this.usedLines;
+  }
+
+  getLineBytes(line) {
+    const index = line * 4;
+    const bytes = [];
+    for (let i = 0; i < 4; i++) {
+      bytes.push(this.getByte(index + i));
+    }
+    return bytes;
   }
 
   updateUsedLines() {
@@ -88,46 +90,17 @@ class BoxMemory {
     this.usedLines = count;
   }
 
-  updateMemoryLine(line, chars) {
-    console.log(chars)
-    var bytes = chars.match(/.{3}/g);
-
-    // First check COMMAND byte
-    var cmd = bytes[0];
-    // Default error state
-    var cmdNum = '00';
-    var error = true;
-
-    // If command exists - validate it
-    if (this.cmdManager.commandExists(cmd)) {
-      let res = this.validateCommand(bytes);
-      if (res) {
-        cmdNum = res;
-        error = false;
-      }
-    } else if ( /^.+[0-9A-F]{2}$/.test(cmd) ) {
-        // If valid number inserted
-        cmdNum = cmd.substr(1); // take last 2 chars
-        error = false;
-    }
+  updateMemoryLine(line, opcode, valid) {
     // Write command to memory
-    this.memory.set(line * 4, cmdNum);
-
-
-    // Write arguments to memory
-    for (let i = 1; i < 4; i++) {
-      let argVal = bytes[i].substr(1);
-      if (bytes[i][0] == '-') {
-        //reverse value
-        argVal = this.reverseNumber(argVal);
-      }
-      this.memory.set((line * 4) + i, argVal);
+    for (var i = 0; i < 4; i++) {
+      this.memory.set(line * 4 + i, opcode[i]);
     }
-
-    this.drawMemoryLine(line, error);
+    this.validLine[line] = valid;
+    this.drawMemoryLine(line);
   }
 
-  drawMemoryLine(line, error, invert) {
+  drawMemoryLine(line, invert) {
+    const error = !this.validLine[line];
     const index = line * 4;
     let bg;
     let forceColor;
@@ -200,16 +173,19 @@ class BoxMemory {
     }, color, bg);
   }
 
-  reverseNumber(num) {
-    var max = 256;
-    var n = parseInt(num, 16);
-    if(n == 0) return 0;
-    var inv = (max - n).toString(16).toUpperCase();
+  shiftLines(line, dir) {
+    if (dir == 1) {
+      this.insertMemoryLine(line);
+    } else {
+      this.deleteMemoryLine(line);
+    }
+    for (var i =0; i < this.linesCount;i++) {
+      this.drawMemoryLine(i);
+    }
 
-    return inv;
   }
 
-  // Insert new memory line
+    // Insert new memory line
   insertMemoryLine(line, count) {
     var pos = line * 4;
     var newLineArgs = new Array(4).fill('00');
@@ -217,6 +193,10 @@ class BoxMemory {
     Array.prototype.splice.apply(this.memory._memory, newLineArgs);
     // Trim array
     this.memory._memory.splice(256);
+
+
+    this.validLine.splice(line, 0, 0);
+    this.validLine.pop();
 
     this.lines.splice(line, 0, 0);
     this.lines.pop();
@@ -230,8 +210,12 @@ class BoxMemory {
     var newLine = new Array(4).fill('00');
     Array.prototype.push.apply(this.memory._memory, newLine);
 
+    this.validLine.splice(line, 1);
+    this.validLine.push(true);
+
     this.lines.splice(line, 1);
     this.lines.push(0);
+
     this.updateUsedLines();
   }
 
@@ -244,5 +228,11 @@ class BoxMemory {
       memory.push('00000000')
     }
     this.view.drawText(memory.join("\n"), this.offset, 'green');
+
+    this.view.drawText('MEMORY', {
+      x: this.offset.x + 1,
+      y: this.offset.y - 2
+    },'green');
   }
 }
+

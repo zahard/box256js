@@ -225,21 +225,24 @@ class ViewRender {
 
   }
 
-  drawCycles(count) {
+  drawCycles(count, active) {
     var offset = {x:6, y:38}
     this._text('CYCLES:', offset.x, offset.y, 'grey');
+
+    var countStr;
+    var color = active ? 'orange' : 'grey';
     if (!count) {
-      this._text('0000', offset.x + 8, offset.y, 'grey');
+      countStr = '0000'
     } else {
-      var countStr = count.toString(16).toUpperCase()
+      countStr = count.toString(16).toUpperCase()
       var leadZeros = 4 - countStr.length;
       if (leadZeros > 0) {
         countStr = new Array(leadZeros).fill('0').join('') + countStr;
       } else {
         countStr = countStr.substr(-4);
       }
-      this._text(countStr, offset.x + 8, offset.y, 'orange');
     }
+    this._text(countStr, offset.x + 8, offset.y, color);
   }
 
   saveArea(area) {

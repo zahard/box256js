@@ -77,6 +77,18 @@ class CodeEditor {
 
   }
 
+  pause() {
+    // Stop cursor blicking
+    clearInterval(this.cursorInterval);
+
+    // Remove cursor
+    this.drawCursor(false);
+  }
+
+  start() {
+    this.runCursor(false);
+  }
+
   /**
   * Set cursor position
   */
@@ -114,6 +126,21 @@ class CodeEditor {
     this.moveCursorToPos(next);
   }
 
+  /**
+   * Move cursor to end of line
+   */
+  moveEnd() {
+    const line = this.getCharLine(this.cursorPos);
+    this.moveCursorToPos((line+1) * this.cellsInRow - 1);
+  }
+
+  /**
+   * Move cursor to start of line
+   */
+  moveStart() {
+    const line = this.getCharLine(this.cursorPos);
+    this.moveCursorToPos(line * this.cellsInRow);
+  }
   /**
   * Move cursor to selected position
   */
@@ -430,8 +457,11 @@ class CodeEditor {
     const cell = this.getCellPosition(nextLine * this.cellsInRow);
     this.view.moveLines(cell, shiftedLines, 18, -1);
 
+    this.emit('lineShift', line, -1)
+
     // Draw new line at the end
     this.updateLine(this.linesCount - 1);
+
 
     // update cursor
     this.drawCursor(true);
@@ -469,8 +499,11 @@ class CodeEditor {
     const shiftedLines = this.linesCount - nextLine;
     this.view.moveLines(this.getCellPosition(pos), shiftedLines, 18, 1);
 
+    this.emit('lineShift', nextLine, 1)
+
     // Update new line
     this.updateLine(nextLine);
+
 
     // Put cursor on new line
     this.moveCursorToPos(pos);
@@ -672,10 +705,19 @@ class CodeEditor {
     window.addEventListener('keydown',function(e) {
       const code = e.keyCode;
       const key = e.key;
+
       const isCtrl = e.ctrlKey || e.metaKey;
 
       if (code == 91 || e.key == "Meta" || code == 17 || code == 16) {
         return;
+      }
+
+      if (key === 'End') {
+        this.moveEnd();
+        e.preventDefault();
+      } else if (key === 'Home') {
+        this.moveStart();
+        e.preventDefault();
       }
 
       if (code == 90 && isCtrl ) {
@@ -742,6 +784,19 @@ class CodeEditor {
         this.moveCursor(2);
       }
     }.bind(this));
+  }
+
+  onClick(cell) {
+    // Check if clicked on editor
+    const line = cell.y - this.offset.y;
+    const row =  cell.x - this.offset.x;
+    if (line > -1 && line < this.linesCount &&
+        row > -1 && row < this.cellsInRow + 3)
+    {
+      const rowPos = row - ~~(row / 4);
+      const pos = line * this.cellsInRow + rowPos;
+      this.moveCursorToPos(pos);
+    }
   }
 
   on(event, fn) {

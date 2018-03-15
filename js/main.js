@@ -1,15 +1,16 @@
 var resources = [
     'Layer',
-    'KeyboardManager',
     'levels',
+    'button',
     'actionsBuffer',
     'memory',
+    'commandList',
+    'commandCompiler',
+    'commandRunner',
     'codeEditor',
     'boxMemory',
-    'ViewRender',
-    'ScreenRender',
-    'commandList',
-    'CommandManager',
+    'viewRender',
+    'screenRender',
     'box256'
 ];
 
