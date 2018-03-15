@@ -25,10 +25,10 @@ class Box256 {
       cream: '#f0ceb4',
     }
 
-    this.width = 800;
-    this.height = 840;
-
     this.gridSize = 16;
+
+    this.width = 70 * this.gridSize;
+    this.height = 43 * this.gridSize;
 
     this.wrapper = wrapper;
 
@@ -39,8 +39,6 @@ class Box256 {
     // Amount of lines in editor
     this.linesCount = 32;
 
-    // Where active area start
-    this.cellsOffset = {x: 4, y: 3};
     this.memCellOffset = {x: 20, y: 3};
 
     this.bgColor = this.pallete.black;
@@ -92,6 +90,8 @@ class Box256 {
     this.compiler = new CommandCompiler();
 
     this.view.onReady(() => {
+
+      this.view.drawHelp({x: 47, y: 3}, 22.3);
 
       this.editor.draw();
 

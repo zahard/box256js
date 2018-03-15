@@ -7,6 +7,7 @@ class ViewRender {
     this.height = obj.height;
     this.wrapper = obj.wrapper;
     this.size = obj.cellSize;
+    this.gridSize = obj.cellSize;
     this.lines = obj.lines;
     this.pallete = obj.pallete;
 
@@ -118,12 +119,13 @@ class ViewRender {
   }
 
 
-  drawText(text, coords, color, bgcolor) {
-    var size = this.size;
-    var x = coords.x * size;
-    var y = coords.y * size;
+  drawText(text, coords, color, bgcolor, fontSize) {
+    var x = coords.x * this.gridSize;
+    var y = coords.y * this.gridSize;
 
     this.font = this.fontColors[color];
+
+    var size = fontSize || this.size;
 
     var dx = 0;
     for (let i = 0; i < text.length; i++) {
@@ -132,13 +134,13 @@ class ViewRender {
         dx = 0;
         continue;
       }
-      this.drawChar(text[i], x + dx * size, y, bgcolor);
+      this.drawChar(text[i], x + dx * size, y, bgcolor, fontSize);
       dx++;
     }
   }
 
-  _text(text, x, y, color, bgcolor) {
-    this.drawText(text,{x: x, y: y}, color, bgcolor);
+  _text(text, x, y, color, bgcolor, fontSize) {
+    this.drawText(text,{x: x, y: y}, color, bgcolor, fontSize);
   }
 
   setFont(color) {
@@ -157,7 +159,6 @@ class ViewRender {
     // Clear
     cxt.set('fillStyle', bgcolor || this.bgColor);
     cxt.fillRect(x, y, size, size);
-
     // Draw char
     cxt.drawImage(this.font,
       cx, cy, fontSize, fontSize,
@@ -278,4 +279,80 @@ class ViewRender {
     )
   }
 
+  drawHelp(coords, targetWidth) {
+    var help = [
+      ['012 = Constant value 12', 'grey'],[],
+      ['@','lightblue','24 = Memory slot 24', 'grey'],[],
+      ['*','red','32 = Memory pointed by slot 32', 'grey'],[],
+      ['MOV', 'green',' A B C', 'blue'],
+      ['Copy C cells from A to B', 'grey'],[],
+      ['PIX', 'pink',' A B', 'blue'],
+      ['Draw color B in location A', 'grey'],[],
+      ['JMP', 'bordo',' A', 'blue'],
+      ['Jump to instruction at A', 'grey'],[],
+      ['JEQ', 'brick',' A B C', 'blue'],
+      ['Jump to C if A == B', 'grey'],[],
+      ['JGR', 'brick',' A B C', 'blue'],
+      ['Jump to C if A > B', 'grey'],[],
+      ['JNE', 'brick',' A B C', 'blue'],
+      ['Jump to C if A != B', 'grey'],[],
+      ['FLP', 'green',' A B C', 'blue'],
+      ['Swap C cells between A and B', 'grey'],[],
+      ['THR', 'yellow',' A B C', 'blue'],
+      ['Start a new thread at A', 'grey'],[],
+
+      ['ADD', 'purple',' A B C', 'blue'],
+      ['Set C = A + B', 'grey'],[],
+      ['SUB', 'purple',' A B C', 'blue'],
+      ['Set C = A - B', 'grey'],[],
+      ['MUL', 'purple',' A B C', 'blue'],
+      ['Set C = A * B', 'grey'],[],
+      ['DIV', 'purple',' A B C', 'blue'],
+      ['Set C = A / B', 'grey'],[],
+      ['MOD', 'purple',' A B C', 'blue'],
+      ['Set C = A % B', 'grey'],
+    ];
+
+    var h = (help.length + 2) * this.size;
+    var w = 32 * this.size;
+    var x = 0;
+    var y = 0;
+    var tmpCnv = document.createElement('canvas');
+    var tmpLayer = new Layer(tmpCnv, w, h, 0, '');
+
+    this.activeLayer = tmpLayer;
+
+    this._text('Pallete =', x, y, 'grey');
+    var pos = 0;
+    for (var c in this.pallete) {
+      this._text(pos.toString(16).toUpperCase(), pos + 10, y, pos == 0 ? 'grey' : 'black', this.pallete[c]);
+      pos++;
+    }
+    y+=2;
+
+    for (let i = 0; i < help.length; i++) {
+      let line = help[i];
+      let pos = 0;
+      for (let c = 0; c < line.length; c+=2) {
+        let text = line[c];
+        let color = line[c+1];
+        this._text(text, x + pos, y, color );
+        pos += text.length;
+      }
+      y++;
+    }
+
+    this.activeLayer = this.layers.back;
+    var ctx = this.activeLayer;
+    var sx = coords.x * this.size;
+    var sy = coords.y * this.size;
+
+    var ratio = w / h;
+    var tw = targetWidth * this.size;
+    var th  = tw / ratio;
+
+    console.log(targetWidth, w, h, tw, th)
+
+    ctx.drawImage(tmpCnv, 0,0, w, h, sx, sy, tw, th)
+  }
 }
