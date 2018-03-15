@@ -8,4 +8,7 @@ but memory still has all 256 bytes. So it easy to read and play i guess.
 
 You can find game manual here http://box-256.com/manual/
 
+![alt text](https://raw.githubusercontent.com/zahard/box256js/master/screenshot.png)
+
+
 
