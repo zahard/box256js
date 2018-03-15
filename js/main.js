@@ -8,9 +8,9 @@ var resources = [
     'commandCompiler',
     'commandRunner',
     'codeEditor',
-    'boxMemory',
-    'viewRender',
-    'screenRender',
+    'memoryBox',
+    'view',
+    'screen',
     'box256'
 ];
 
