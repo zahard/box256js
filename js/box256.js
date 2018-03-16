@@ -3,41 +3,37 @@ class Box256 {
 
   constructor(wrapper) {
 
-    this.pallete = {
-      black: '#111111',
-      blue: '#354367',
-      bordo: '#6c3652',
-      green: '#4f7f58',
-
-      brick: '#965b46',
-      grey: '#5d5751',
-      silver: '#c2c3c7',
-      white: '#fefefe',
-
-      red: '#d74f5e',
-      orange: '#e7a856',
-      yellow: '#fef877',
-      lightgreen: '#6ddd64',
-
-      lightblue: '#6baef1',
-      purple: '#7f7a97',
-      pink: '#df8ba9',
-      cream: '#f0ceb4',
-    }
-
-    this.gridSize = 16;
-
-    this.width = 70 * this.gridSize;
-    this.height = 43 * this.gridSize;
-
     this.wrapper = wrapper;
 
-    this.hoverCell = {
-      x:0, y: 0
-    }
+    this.pallete = new Pallete();
+
+    // Base cell size
+    this.cellSize = 16;
 
     // Amount of lines in editor
-    this.linesCount = 32;
+    this.linesCount = 37;
+
+    // Rows and cols of screen
+    const APP_WIDTH = 70; // 70 / 48
+    const APP_HEIGHT = this.linesCount + 10;
+
+    this.viewRows = APP_HEIGHT;
+
+    this.view = new ViewRender({
+      wrapper: this.wrapper,
+      width: APP_WIDTH * this.cellSize,
+      height: APP_HEIGHT * this.cellSize,
+      cellSize: this.cellSize,
+      onReady: () => {
+        this.viewReady();
+      }
+    });
+
+    // Currently hovered cell
+    this.hoverCell = {
+      x:0, y: 0
+    };
+
 
     this.memCellOffset = {x: 20, y: 3};
 
@@ -46,19 +42,6 @@ class Box256 {
 
     this.stepDelay = 15;
 
-    setTimeout(() => {
-      this.attachListeners()
-    }, 500);
-
-
-    this.view = new ViewRender({
-      wrapper: this.wrapper,
-      height: this.height,
-      width: this.width,
-      cellSize: this.gridSize,
-      lines: this.linesCount,
-      pallete: this.pallete
-    });
 
     this.targetScreen = new ScreenRender(this.view, {
       x: 30, y: 19
@@ -70,7 +53,7 @@ class Box256 {
 
     this.editor = new CodeEditor(this.view, {
       x: 4, y: 3
-    }, this.pallete);
+    }, this.linesCount);
 
     this.editor.on('lineUpdate', (line, chars) => {
       this.onUpdateLine(line, chars);
@@ -89,56 +72,13 @@ class Box256 {
     this.commandList = new CommandList();
     this.compiler = new CommandCompiler();
 
-    this.view.onReady(() => {
-
-      this.view.drawHelp({x: 47, y: 3}, 22.3);
-
-      this.editor.draw();
-
-      this.memoryBox.draw();
-
-      this.screen.draw(true);
-
-      this.targetScreen.draw();
-
-      this.addButton(6, 36, 'STOP', () => {
-        this.stop();
-      }, true);
-
-      this.addButton(13, 36, 'STEP', () => {
-        this.step();
-      });
-
-      this.addButton(20, 36, 'PLAY', () => {
-        this.run();
-      });
-
-      this.addButton(30, 36, 'PREV', () => {
-        this.level--;
-        if (this.level < 0) {
-          this.level = this.levels.length - 1;
-        }
-        this.loadLevel();
-      });
-
-      this.addButton(40, 36, 'NEXT', () => {
-        this.level++;
-        if (this.level >= this.levels.length) {
-          this.level = 0;
-        }
-        this.loadLevel();
-      });
-
-      this.view.drawCycles(0);
-
-      this.view.drawAllocated(this.getUsedLines(), false)
-
-      this.init();
-    });
-
     this.memCount = 0;
 
     this.levels = getLevels();
+
+    setTimeout(() => {
+      this.attachListeners()
+    }, 50);
 
   }
 
@@ -164,6 +104,55 @@ class Box256 {
     }));
   }
 
+  viewReady() {
+    this.editor.draw();
+
+    this.view.drawHelp({x: 47, y: 3}, 22.3);
+
+    this.memoryBox.draw();
+
+    this.screen.draw(true);
+
+    this.targetScreen.draw();
+
+    // Add lines to 6th line from bottom
+    this.buttonLine = this.viewRows - 6;
+
+    this.addButton(6, this.buttonLine, 'STOP', () => {
+      this.stop();
+    }, true);
+
+    this.addButton(13, this.buttonLine, 'STEP', () => {
+      this.step();
+    });
+
+    this.addButton(20, this.buttonLine, 'PLAY', () => {
+      this.run();
+    });
+
+    this.addButton(30, this.buttonLine, 'PREV', () => {
+      this.level--;
+      if (this.level < 0) {
+        this.level = this.levels.length - 1;
+      }
+      this.loadLevel();
+    });
+
+    this.addButton(40, this.buttonLine, 'NEXT', () => {
+      this.level++;
+      if (this.level >= this.levels.length) {
+        this.level = 0;
+      }
+      this.loadLevel();
+    });
+
+    this.drawCycles(0);
+
+    this.drawAllocated(this.getUsedLines(), false)
+
+    this.init();
+  }
+
   init() {
     this.running = false;
     this.loadFirstLevel();
@@ -171,10 +160,10 @@ class Box256 {
   }
 
   run() {
+    console.log('RUN')
     if (!this.running) {
       this.prepareToRun();
     }
-    this.getButton('PLAY').disable();
     this.step(true);
   }
 
@@ -194,10 +183,10 @@ class Box256 {
 
     // Lets count cycles
     this.cycles = 0;
-    this.view.drawCycles(this.cycles, true);
+    this.drawCycles(this.cycles, true);
 
     // Draw active memory
-    this.view.drawAllocated(this.getUsedLines(), true)
+    this.drawAllocated(this.getUsedLines(), true)
 
     this.createdThread = -1;
     this.threads = [0];
@@ -219,6 +208,7 @@ class Box256 {
       this.stepTimeout = setTimeout(() => {
         this.step(true);
       }, this.stepDelay);
+      this.getButton('PLAY').disable();
     } else {
       clearTimeout(this.stepTimeout);
       this.getButton('PLAY').enable();
@@ -226,7 +216,7 @@ class Box256 {
 
     // Count cycles
     this.cycles++;
-    this.view.drawCycles(this.cycles, true);
+    this.drawCycles(this.cycles, true);
 
     // Deactivate current line
     this.drawUnactiveLines(this.threads);
@@ -288,7 +278,7 @@ class Box256 {
     this.threads = [];
 
     this.cycles = 0;
-    this.view.drawCycles(this.cycles);
+    this.drawCycles(this.cycles);
 
     // Put memory back
     this.memoryBox.restoreMemory();
@@ -297,7 +287,7 @@ class Box256 {
     this.screen.resetScreen();
 
     // Draw active memory
-    this.view.drawAllocated(this.getUsedLines(), false)
+    this.drawAllocated(this.getUsedLines(), false)
 
     // Run cursor
     this.editor.start();
@@ -339,7 +329,11 @@ class Box256 {
       nextLine = this.getNextInstuctionByByte(results.jumpTo);
     // If need to jump relatively
     } else if (typeof results.jumpOffset !== 'undefined') {
-      nextLine = line + results.jumpOffset;
+      var memoryLines = 64;
+
+      nextLine = (line + results.jumpOffset) % memoryLines
+
+      //nextLine = line + results.jumpOffset;
       if (nextLine > this.linesCount) {
         nextLine = nextLine % this.linesCount;
       } else if (nextLine < 0) {
@@ -366,20 +360,30 @@ class Box256 {
     clearTimeout(this.stepTimeout);
     this.getButton('PLAY').enable();
 
-    var colors = ['lightgreen', 'green'];
-    var index = 0;
-    this.view.drawText('--= LEVEL DONE =--', {x: 7, y:40}, colors[index]);
+    let bright = true;
+    this.drawLevelDone(bright, true);
     this.levelDoneInterval = setInterval(() => {
-      index = index ? 0 : 1
-      this.view.drawText('--= LEVEL DONE =--', {x: 7, y:40}, colors[index]);
+      bright = !bright;
+      this.drawLevelDone(bright, true);
     }, 500);
+  }
+
+  drawLevelDone(bright, show) {
+    let text = '--= LEVEL DONE =--';
+    let color = bright ? 'lightgreen' : 'green';
+    if (!show) {
+      // Replace text with spaces
+      text = new Array(text.length).fill(' ');
+      color = 'black';
+    }
+    this.view.drawText(text, {x: 7, y: this.viewRows - 2}, color);
   }
 
   beforeButtonClick() {
     if (this.levelDoneInterval) {
       clearInterval(this.levelDoneInterval);
       this.levelDoneInterval = null;
-      this.view.drawText('                  ', {x: 7, y:40}, 'black');
+      this.drawLevelDone(false, false);
     }
   }
 
@@ -424,7 +428,7 @@ class Box256 {
 
   affectedLines(line) {
     this.memCount = this.memoryBox.count();
-    this.view.drawAllocated(this.memCount, false);
+    this.drawAllocated(this.memCount, false);
   }
 
   getUsedLines() {
@@ -460,7 +464,7 @@ class Box256 {
 
   findButton(cell) {
     // Only those lines has buttons
-    if (cell.y != 36 && cell.y != 1) return;
+    if (cell.y != this.buttonLine && cell.y != 1) return;
     for (var i = 0; i < this.buttons.length; i++) {
       let b = this.buttons[i];
       if (b.disabled) continue;
@@ -475,6 +479,7 @@ class Box256 {
 
   onClick() {
     if (this._hoveredButton) {
+      if (this._hoveredButton.disabled) return;
       this.beforeButtonClick()
       this._hoveredButton.click();
       return;
@@ -519,8 +524,8 @@ class Box256 {
 
     this.wrapper.addEventListener('mousemove',(e) => {
       this.hoverCell = {
-        x: ~~(e.offsetX / this.gridSize),
-        y: ~~(e.offsetY / this.gridSize)
+        x: ~~(e.offsetX / this.cellSize),
+        y: ~~(e.offsetY / this.cellSize)
       };
       this.onHoverCell(this.hoverCell);
     });
@@ -566,6 +571,10 @@ class Box256 {
     this.screen.resetScreen();
   }
 
+  getCurrentLevel() {
+    return this.currentLevel;
+  }
+
   drawLevel() {
     var level = this.getCurrentLevel();
     var x,y,c;
@@ -577,8 +586,41 @@ class Box256 {
     }
   }
 
-  getCurrentLevel() {
-    return this.currentLevel;
+
+  drawAllocated(count, active) {
+    var offset = {
+      x: 19,
+      y: this.viewRows - 4
+    };
+    var countStr = count.toString(16).toUpperCase();
+    if (countStr.length == 1) {
+      countStr = '0' + countStr;
+    }
+    this.view._text('LOC:', offset.x, offset.y, 'grey');
+    this.view._text(countStr, offset.x + 5, offset.y, active ? 'yellow':'grey');
+  }
+
+  drawCycles(count, active) {
+    var offset = {
+      x:6,
+      y: this.viewRows - 4
+    };
+    this.view._text('CYCLES:', offset.x, offset.y, 'grey');
+
+    var countStr;
+    var color = active ? 'orange' : 'grey';
+    if (!count) {
+      countStr = '0000'
+    } else {
+      countStr = count.toString(16).toUpperCase()
+      var leadZeros = 4 - countStr.length;
+      if (leadZeros > 0) {
+        countStr = new Array(leadZeros).fill('0').join('') + countStr;
+      } else {
+        countStr = countStr.substr(-4);
+      }
+    }
+    this.view._text(countStr, offset.x + 8, offset.y, color);
   }
 
 }

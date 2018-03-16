@@ -2,6 +2,7 @@ var resources = [
     'Layer',
     'levels',
     'button',
+    'pallete',
     'actionsBuffer',
     'memory',
     'commandList',
@@ -14,8 +15,7 @@ var resources = [
     'box256'
 ];
 
-for (var i = 0; i < resources.length; i++)
-{
+for (var i = 0; i < resources.length; i++) {
     document.write('<script type="text/javascript" src="js/'+resources[i]+'.js"></script>');
 }
 

@@ -6,10 +6,10 @@ class ScreenRender {
     this.offset = offset;
 
     // Application grid size for offsets
-    this.gridSize = 16;
+    this.cellSize = this.view.size;
 
     // Pixel/ cell size
-    this.pixelSize = 16;
+    this.pixelSize = this.cellSize;
 
     // 16 x 16 screen
     this.screenSize = 16;
@@ -22,8 +22,8 @@ class ScreenRender {
     const cxt = this.view.activeLayer;
     cxt.save();
 
-    const x = this.offset.x * this.gridSize;
-    const y = this.offset.y * this.gridSize;
+    const x = this.offset.x * this.cellSize;
+    const y = this.offset.y * this.cellSize;
     this.drawGrid(x,y, this.screenSize, this.pixelSize);
 
     if (putNums) {
@@ -89,8 +89,8 @@ class ScreenRender {
     var cxt = this.view.activeLayer;
     cxt.save()
 
-    var sx = this.offset.x * this.gridSize + x * this.pixelSize + 1;
-    var sy = this.offset.y * this.gridSize + y * this.pixelSize + 1;
+    var sx = this.offset.x * this.cellSize + x * this.pixelSize + 1;
+    var sy = this.offset.y * this.cellSize + y * this.pixelSize + 1;
     var color = this.getColor(colorIndex);
     cxt.set('fillStyle', color);
     cxt.fillRect(sx, sy, this.pixelSize - 1, this.pixelSize - 1);

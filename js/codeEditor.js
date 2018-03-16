@@ -1,8 +1,8 @@
 class CodeEditor {
 
-  constructor(view, offset, pallete) {
+  constructor(view, offset, linesCount) {
     this.view = view;
-    this.pallete = pallete;
+    this.pallete = new Pallete();
 
     this.commandList = new CommandList();
 
@@ -11,11 +11,8 @@ class CodeEditor {
     // Whole editor offset
     this.offset = offset;
 
-    // Base cell size
-    this.cellSize = 16;
-
     // Amount of editable lines
-    this.linesCount = 32;
+    this.linesCount = linesCount;
 
     // Active area width
     this.cellsInRow = 12;
@@ -44,19 +41,14 @@ class CodeEditor {
     // Clipboard content
     this.clipboard = [];
 
-    this.bgColor = pallete.black;
+    this.bgColor = this.pallete.black;
 
     // Array of chars in editor
     this.chars = new Array(this.cellsInRow * this.linesCount).fill('0');
 
-    // Create colors index
-    this.colors = {};
-    this.indexColors = [];
-    let i = 0;
-    for (var c in pallete) {
-      this.colors[c] = i++;
-      this.indexColors.push(c);
-    }
+    this.colors = this.pallete.colors;
+    this.indexColors = this.pallete.indexColors;
+
     // Chars colors
     this.colorMap = new Array(this.cellsInRow * this.linesCount).fill(this.colors.grey);
 
@@ -451,17 +443,15 @@ class CodeEditor {
     var newColors = new Array(this.cellsInRow).fill('grey');
     this.unshiftArray(this.colorMap, pos, newColors)
 
-
-    const nextLine = line + 1;
-    const shiftedLines = this.linesCount - nextLine;
-    const cell = this.getCellPosition(nextLine * this.cellsInRow);
-    this.view.moveLines(cell, shiftedLines, 18, -1);
-
-    this.emit('lineShift', line, -1)
+    this.emit('lineShift', line, -1);
 
     // Draw new line at the end
     this.updateLine(this.linesCount - 1);
 
+    // Redraw shifted lines
+    for (let i = line; i < this.linesCount; i++) {
+      this.drawLine(i);
+    }
 
     // update cursor
     this.drawCursor(true);
@@ -494,16 +484,15 @@ class CodeEditor {
     const newColors = new Array(this.cellsInRow).fill(this.colors.grey);
     this.shiftArray(this.colorMap, pos, newColors);
 
-    // To not render all below lines
-    // just shift view to one cell below
-    const shiftedLines = this.linesCount - nextLine;
-    this.view.moveLines(this.getCellPosition(pos), shiftedLines, 18, 1);
-
     this.emit('lineShift', nextLine, 1)
 
     // Update new line
     this.updateLine(nextLine);
 
+    // Redraw shifted lines
+    for (let i = nextLine; i < this.linesCount; i++) {
+      this.drawLine(i);
+    }
 
     // Put cursor on new line
     this.moveCursorToPos(pos);
@@ -695,10 +684,9 @@ class CodeEditor {
       }
       lineNum.push(n);
     }
+
     this.view.drawText(lineNum.join("\n"), this.coord(-3, 0), 'blue');
     this.view.drawText(nulls.join("\n"), this.coord(0, 0), 'grey');
-
-    //this.view.activeLayer = this.view.layers.data;
   }
 
   attachListeners() {

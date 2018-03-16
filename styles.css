@@ -14,7 +14,7 @@ body,html , div,canvas {
 
 #wrapper {
     position: relative;
-    margin: 20px auto;
+    margin: 0px auto;
     margin-bottom: 20px;
     position: relative;
     outline: #666 solid 5px;

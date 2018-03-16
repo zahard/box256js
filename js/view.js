@@ -8,9 +8,10 @@ class ViewRender {
     this.wrapper = obj.wrapper;
     this.size = obj.cellSize;
     this.gridSize = obj.cellSize;
-    this.lines = obj.lines;
-    this.pallete = obj.pallete;
 
+    this._onReadCallback = obj.onReady;
+
+    this.pallete = new Pallete();
     this.bgColor = this.pallete.black;
 
 
@@ -23,15 +24,13 @@ class ViewRender {
     this.layers = {
       back: layerFactory.create('back', 1)
     }
+
     // Layer to put data
     this.activeLayer = this.layers.back;
 
     this.loadImages();
   }
 
-  onReady(fn) {
-    this._onReadCallback = fn;
-  }
 
   // Fill background
   drawBackground() {
@@ -102,22 +101,6 @@ class ViewRender {
     layer.fillRect(0, 0, w, h);
     return layer.cnv;
   }
-
-  drawButton(b) {
-    var color = b.active ? 'black' : 'white'
-    var color_sec = b.active ? 'black': 'grey'
-    var bgColor = b.active ? 'white': 'black';
-    var bgColor_sec = b.active ? 'grey': 'black';
-    if (b.disabled) {
-      color = color_sec = 'grey';
-      bgColor = bgColor_sec = 'black';
-    }
-
-    this._text('[', b.x, b.y, color_sec, bgColor_sec);
-    this._text(b.text, b.x + 1 , b.y, color, bgColor);
-    this._text(']', b.x + b.w - 1, b.y, color_sec, bgColor_sec);
-  }
-
 
   drawText(text, coords, color, bgcolor, fontSize) {
     var x = coords.x * this.gridSize;
@@ -202,49 +185,6 @@ class ViewRender {
 
   }
 
-  moveLines(coords, height, width, direction, cut) {
-    var cxt = this.activeLayer;
-    var size = this.size;
-    var x = coords.x * size;
-    var y = coords.y * size;
-    var w = width * size;
-    var h = height *size;
-
-    cxt.drawImage(cxt.cnv,
-      x, y, w, h - (direction * size),
-      x, y + direction * size, w, h - (direction * size));
-  }
-
-
-  drawAllocated(count, active) {
-    var offset = {x:19, y:38}
-    this._text('LOC:', offset.x, offset.y, 'grey');
-
-    var countStr = count.toString(16).toUpperCase();
-    if (countStr.length == 1) countStr = '0' + countStr;
-    this._text(countStr, offset.x + 5, offset.y, active ? 'yellow':'grey');
-
-  }
-
-  drawCycles(count, active) {
-    var offset = {x:6, y:38}
-    this._text('CYCLES:', offset.x, offset.y, 'grey');
-
-    var countStr;
-    var color = active ? 'orange' : 'grey';
-    if (!count) {
-      countStr = '0000'
-    } else {
-      countStr = count.toString(16).toUpperCase()
-      var leadZeros = 4 - countStr.length;
-      if (leadZeros > 0) {
-        countStr = new Array(leadZeros).fill('0').join('') + countStr;
-      } else {
-        countStr = countStr.substr(-4);
-      }
-    }
-    this._text(countStr, offset.x + 8, offset.y, color);
-  }
 
   saveArea(area) {
     if (!this.cache) {
@@ -350,8 +290,6 @@ class ViewRender {
     var ratio = w / h;
     var tw = targetWidth * this.size;
     var th  = tw / ratio;
-
-    console.log(targetWidth, w, h, tw, th)
 
     ctx.drawImage(tmpCnv, 0,0, w, h, sx, sy, tw, th)
   }

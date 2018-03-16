@@ -7,8 +7,10 @@ function LayersFactory(options) {
     this.width = options.size[0];
     this.height = options.size[1];
 
-    this.wrap = options.wrap;
+    // Retina support
+    this.isHD = window.devicePixelRatio > 1;
 
+    this.wrap = options.wrap;
     this.wrap.style.width = this.width + 'px';
     this.wrap.style.height = this.height + 'px';
 }
@@ -22,7 +24,7 @@ LayersFactory.prototype.create = function(name, z_index)
     cnv.style.position = 'absolute';
     this.wrap.appendChild(cnv);
 
-    var layer = new Layer(cnv, this.width, this.height,z_index, name);
+    var layer = new Layer(cnv, this.width, this.height,z_index, name, this.isHD);
 
     return layer;
 }
@@ -32,11 +34,17 @@ LayersFactory.prototype.create = function(name, z_index)
  * Application Canvas Layer
  */
 
-function Layer(canvas, width, height, z_index, name) {
- 	canvas.width = width;
- 	canvas.height = height;
+function Layer(canvas, width, height, z_index, name, isHD) {
+
+  if (isHD) {
+    width  *= 2;
+    height *= 2;
+  }
+
  	this.width = width;
  	this.height = height;
+  canvas.width = this.width;
+  canvas.height = this.height;
 
  	this.cnv  = canvas;
  	if (typeof z_index !== 'undefined')
@@ -44,11 +52,18 @@ function Layer(canvas, width, height, z_index, name) {
  		canvas.style.zIndex = z_index;
  	}
 
- 	this.cxt = canvas.getContext('2d');
+ 	this.cxt = canvas.getContext('2d')
+
+  if (isHD) {
+    this.cxt.scale(2,2)
+  }
+
 
   this.cxt.webkitImageSmoothingEnabled = false;
   this.cxt.mozImageSmoothingEnabled = false;
   this.cxt.imageSmoothingEnabled = false; /// future
+
+
 
 	this.layerName = name;
  }
