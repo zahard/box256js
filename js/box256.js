@@ -537,6 +537,10 @@ class Box256 {
       this.onHoverCell(this.hoverCell);
     });
 
+    this.wrapper.addEventListener('mousedown',(e) => {
+      e.preventDefault();
+    });
+
     this.wrapper.addEventListener('click',(e) => {
       this.onClick();
     });
