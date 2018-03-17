@@ -118,6 +118,14 @@ class Box256 {
     // Add lines to 6th line from bottom
     this.buttonLine = this.viewRows - 6;
 
+    this.addButton(5, 1, 'SAVE', () => {
+      this.save();
+    });
+
+    this.addButton(12, 1, 'LOAD', () => {
+      this.load();
+    });
+
     this.addButton(6, this.buttonLine, 'STOP', () => {
       this.stop();
     }, true);
@@ -534,6 +542,79 @@ class Box256 {
     });
   }
 
+  save() {
+    this.editor.disableEvents = true;
+    const popup = this.openPopup();
+
+    const text =  document.createElement('textarea');
+    popup.appendChild(text);
+
+    const b =  document.createElement('button');
+    popup.appendChild(b);
+    b.innerText = 'OK';
+    b.onclick = () => {
+      this.closePopup();
+    }
+
+    let lastNotEmpty = 0;
+    let lines = [];
+    for (i =0 ;i < this.linesCount;i++) {
+      let line = this.editor.getLine(i);
+      if (line !== '000000000000') {
+        lastNotEmpty = i;
+      }
+      lines.push(line);
+    }
+    lines = lines.slice(0,lastNotEmpty + 1);
+    text.value = lines.join('\n');
+  }
+
+  load() {
+    this.editor.disableEvents = true;
+    const popup = this.openPopup();
+
+    const text =  document.createElement('textarea');
+    popup.appendChild(text);
+
+    const b =  document.createElement('button');
+    popup.appendChild(b);
+    b.innerText = 'Load';
+    b.onclick = () => {
+      this.loadCode(text.value.toUpperCase().split("\n"));
+      this.closePopup();
+    }
+
+    const c =  document.createElement('button');
+    popup.appendChild(c);
+    c.innerText = 'Cancel';
+    c.onclick = () => {
+      this.closePopup();
+    }
+  }
+
+  closePopup() {
+    if (this.popup) {
+      document.body.removeChild(this.popup);
+      this.editor.disableEvents = false;
+      this.popup = null;
+    }
+  }
+  openPopup() {
+    this.closePopup();
+    this.editor.disableEvents = true;
+    const popup = document.createElement('div');
+    popup.className = 'popup';
+    document.body.appendChild(popup);
+    this.popup = popup;
+    return popup;
+  }
+
+  loadCode(lines) {
+    for (let i=0;i<this.linesCount;i++) {
+      const chars = lines[i] || '';
+      this.editor.setLineChars(i, chars);
+    }
+  }
 
   loadProgramm(lines) {
     lines.forEach((chars, line) => {

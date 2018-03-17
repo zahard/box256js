@@ -691,6 +691,7 @@ class CodeEditor {
 
   attachListeners() {
     window.addEventListener('keydown',function(e) {
+      if (this.disableEvents) return;
       const code = e.keyCode;
       const key = e.key;
 
