@@ -24,6 +24,7 @@ function CommandList() {
         color: 'green',
         required: 2,
         args: 'rwr',
+        defaults:['001'],
         commutative: false
       },
       'PIX': {
@@ -96,6 +97,7 @@ function CommandList() {
         color: 'green',
         required: 2,
         args: 'wwr',
+        defaults:['001'],
         commutative: false
       },
     };

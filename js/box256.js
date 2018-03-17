@@ -11,10 +11,10 @@ class Box256 {
     this.cellSize = 16;
 
     // Amount of lines in editor
-    this.linesCount = 37;
+    this.linesCount = 32;
 
     // Rows and cols of screen
-    const APP_WIDTH = 70; // 70 / 48
+    const APP_WIDTH = 70;
     const APP_HEIGHT = this.linesCount + 10;
 
     this.viewRows = APP_HEIGHT;
@@ -160,7 +160,6 @@ class Box256 {
   }
 
   run() {
-    console.log('RUN')
     if (!this.running) {
       this.prepareToRun();
     }

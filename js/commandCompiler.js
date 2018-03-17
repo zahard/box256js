@@ -18,6 +18,19 @@ class CommandCompiler {
     // If command exists - validate it
     const command = this.commandList.getCommand(cmd);
     if (command) {
+
+      // If command has default params
+      const argsLen = command.args.length;
+      if (argsLen > command.required) {
+        const notReqIndex = command.required + 1;
+        for (let i = command.required +1; i <= argsLen; i++) {
+          // If value empty apply default
+          if (bytes[i] === '000') {
+            bytes[i] = command.defaults[i - notReqIndex];
+          }
+        }
+      }
+
       let res = this.validate(command,
         bytes[0], bytes[1], bytes[2],bytes[3]);
       if (res) {
@@ -31,6 +44,7 @@ class CommandCompiler {
     }
 
     const opcode = [cmdNum];
+
     // Write arguments to memory
     for (let i = 1; i < 4; i++) {
       let argVal = bytes[i].substr(1);

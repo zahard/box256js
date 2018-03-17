@@ -55,6 +55,8 @@ class CommandRunner {
   }
 
   execFLP(args, argTypes, a, b, c) {
+    var count = c || 1;
+
     var av = this.getAdressValue(a);
     var bv = this.getAdressValue(b);
     this.setAdressValue(av, b);
