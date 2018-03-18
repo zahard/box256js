@@ -263,11 +263,9 @@ class ViewRender {
     this.activeLayer = tmpLayer;
 
     this._text('Pallete =', x, y, 'grey');
-    var pos = 0;
-    for (var c in this.pallete) {
-      this._text(pos.toString(16).toUpperCase(), pos + 10, y, pos == 0 ? 'grey' : 'black', this.pallete[c]);
-      pos++;
-    }
+    this.pallete.indexColors.forEach((name,index) => {
+      this._text(index.toString(16).toUpperCase(), index + 10, y, index === 0? 'grey' : 'black', this.pallete[name]);
+    })
     y+=2;
 
     for (let i = 0; i < help.length; i++) {
