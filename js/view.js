@@ -264,7 +264,7 @@ class ViewRender {
 
     this._text('Pallete =', x, y, 'grey');
     var pos = 0;
-    for (var c in this.pallete) {
+    for (var c of this.pallete.indexColors) {
       this._text(pos.toString(16).toUpperCase(), pos + 10, y, pos == 0 ? 'grey' : 'black', this.pallete[c]);
       pos++;
     }
