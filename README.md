@@ -1,4 +1,6 @@
 # Box256
+You can try game here: https://zahard.github.io/box256js/
+
 Implementation of fun programming game http://box-256.com/
 All credits to author https://twitter.com/JuhaKiili
 
