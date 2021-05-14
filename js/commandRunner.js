@@ -129,11 +129,13 @@ class CommandRunner {
   }
 
   execDIV(args, argTypes, a, b, c) {
-    this.setAdressValue(parseInt(a / b, 10),  c);
+    var result = b === 0 ? 255 : parseInt(a / b, 10);
+    this.setAdressValue(result,  c);
   }
 
   execMOD(args, argTypes, a, b, c) {
-    this.setAdressValue(parseInt(a % b, 10), c);
+    var result = b === 0 ? 255 : parseInt(a % b, 10);
+    this.setAdressValue(result, c);
   }
 
 
